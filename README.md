@@ -49,6 +49,12 @@ npm run dev                 # http://localhost:4000
 
 Health check: `curl http://localhost:4000/api/health`
 
+To run the API in the background (survives closing the terminal):
+
+```bash
+bash scripts/start-api.sh   # logs to $TMPDIR/pes-api.log
+```
+
 ## 3. Run the app
 
 ```bash
