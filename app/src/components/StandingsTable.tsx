@@ -1,7 +1,52 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { StandingRow } from '@/lib/types';
 import { FormDots } from './FormDots';
+
+const DETAIL_WIDTHS = {
+  pos: 30,
+  team: 132,
+  played: 28,
+  won: 26,
+  drawn: 26,
+  lost: 26,
+  goalsFor: 30,
+  goalsAgainst: 30,
+  goalDifference: 34,
+  points: 36,
+} as const;
+
+const DETAIL_TOTAL =
+  Object.values(DETAIL_WIDTHS).reduce((sum, width) => sum + width, 0) + spacing.md * 2;
+
+type NumericKey =
+  | 'played'
+  | 'won'
+  | 'drawn'
+  | 'lost'
+  | 'goalsFor'
+  | 'goalsAgainst'
+  | 'goalDifference'
+  | 'points';
+
+type Column = { key: NumericKey; label: string; width: number; align: 'center' | 'right' };
+
+const COMPACT_COLUMNS: Column[] = [
+  { key: 'played', label: 'P', width: 34, align: 'center' },
+  { key: 'goalDifference', label: 'GD', width: 34, align: 'center' },
+  { key: 'points', label: 'Pts', width: 38, align: 'right' },
+];
+
+const DETAIL_COLUMNS: Column[] = [
+  { key: 'played', label: 'P', width: DETAIL_WIDTHS.played, align: 'center' },
+  { key: 'won', label: 'W', width: DETAIL_WIDTHS.won, align: 'center' },
+  { key: 'drawn', label: 'D', width: DETAIL_WIDTHS.drawn, align: 'center' },
+  { key: 'lost', label: 'L', width: DETAIL_WIDTHS.lost, align: 'center' },
+  { key: 'goalsFor', label: 'GF', width: DETAIL_WIDTHS.goalsFor, align: 'center' },
+  { key: 'goalsAgainst', label: 'GA', width: DETAIL_WIDTHS.goalsAgainst, align: 'center' },
+  { key: 'goalDifference', label: 'GD', width: DETAIL_WIDTHS.goalDifference, align: 'center' },
+  { key: 'points', label: 'Pts', width: DETAIL_WIDTHS.points, align: 'right' },
+];
 
 function positionTone(position: number) {
   if (position === 1) return { color: colors.gold, background: colors.goldSoft };
@@ -10,21 +55,41 @@ function positionTone(position: number) {
   return { color: colors.textMuted, background: 'transparent' };
 }
 
+function cellValue(row: StandingRow, key: NumericKey): string {
+  if (key === 'goalDifference') {
+    return row.goalDifference > 0 ? `+${row.goalDifference}` : String(row.goalDifference);
+  }
+  return String(row[key]);
+}
+
 export function StandingsTable({
   standings,
   onSelect,
+  detailed = false,
 }: {
   standings: StandingRow[];
   onSelect: (row: StandingRow) => void;
+  detailed?: boolean;
 }) {
-  return (
-    <View style={styles.table}>
+  const columns = detailed ? DETAIL_COLUMNS : COMPACT_COLUMNS;
+  const teamWidth = detailed ? DETAIL_WIDTHS.team : undefined;
+  const posWidth = detailed ? DETAIL_WIDTHS.pos : undefined;
+
+  const table = (
+    <View style={detailed ? { minWidth: DETAIL_TOTAL } : undefined}>
       <View style={styles.header}>
-        <Text style={[styles.headerLabel, styles.posCol]}>#</Text>
-        <Text style={[styles.headerLabel, styles.teamCol]}>Team</Text>
-        <Text style={[styles.headerLabel, styles.numCol]}>P</Text>
-        <Text style={[styles.headerLabel, styles.numCol]}>GD</Text>
-        <Text style={[styles.headerLabel, styles.ptsCol]}>Pts</Text>
+        <Text style={[styles.headerLabel, posWidth ? { width: posWidth } : styles.posCol]}>#</Text>
+        <Text style={[styles.headerLabel, teamWidth ? { width: teamWidth } : styles.teamCol]}>
+          Team
+        </Text>
+        {columns.map((column) => (
+          <Text
+            key={column.key}
+            style={[styles.headerLabel, { width: column.width, textAlign: column.align }]}
+          >
+            {column.label}
+          </Text>
+        ))}
       </View>
 
       {standings.map((row) => {
@@ -35,27 +100,55 @@ export function StandingsTable({
             onPress={() => onSelect(row)}
             style={({ pressed }) => [styles.row, pressed && { backgroundColor: colors.cardAlt }]}
           >
-            <View style={styles.posCol}>
+            <View style={posWidth ? { width: posWidth } : styles.posCol}>
               <View style={[styles.posBadge, { backgroundColor: tone.background }]}>
                 <Text style={[styles.posText, { color: tone.color }]}>{row.position}</Text>
               </View>
             </View>
 
-            <View style={styles.teamCol}>
+            <View
+              style={[
+                styles.teamCol,
+                teamWidth ? { flex: 0, width: teamWidth } : null,
+              ]}
+            >
               <Text style={styles.teamName} numberOfLines={1}>
                 {row.teamName}
               </Text>
               <FormDots form={row.form} size={15} />
             </View>
 
-            <Text style={[styles.cell, styles.numCol]}>{row.played}</Text>
-            <Text style={[styles.cell, styles.numCol]}>
-              {row.goalDifference > 0 ? `+${row.goalDifference}` : row.goalDifference}
-            </Text>
-            <Text style={[styles.cell, styles.ptsCol, styles.points]}>{row.points}</Text>
+            {columns.map((column) => (
+              <Text
+                key={column.key}
+                style={[
+                  styles.cell,
+                  { width: column.width, textAlign: column.align },
+                  column.key === 'points' && styles.points,
+                ]}
+              >
+                {cellValue(row, column.key)}
+              </Text>
+            ))}
           </Pressable>
         );
       })}
+    </View>
+  );
+
+  if (!detailed) {
+    return <View style={styles.table}>{table}</View>;
+  }
+
+  return (
+    <View style={styles.table}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {table}
+      </ScrollView>
     </View>
   );
 }
@@ -67,6 +160,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     overflow: 'hidden',
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   header: {
     flexDirection: 'row',
@@ -98,14 +194,6 @@ const styles = StyleSheet.create({
   teamCol: {
     flex: 1,
     gap: 4,
-  },
-  numCol: {
-    width: 34,
-    textAlign: 'center',
-  },
-  ptsCol: {
-    width: 38,
-    textAlign: 'right',
   },
   posBadge: {
     width: 24,

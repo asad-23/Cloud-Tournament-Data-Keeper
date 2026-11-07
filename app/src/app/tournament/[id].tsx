@@ -97,6 +97,7 @@ export default function TournamentScreen() {
   const remove = useDeleteTournament();
 
   const [tab, setTab] = useState<TabKey>('table');
+  const [detailedTable, setDetailedTable] = useState(false);
   const [selected, setSelected] = useState<StandingRow | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [confirm, setConfirm] = useState<null | 'start' | 'finish' | 'delete'>(null);
@@ -416,7 +417,39 @@ export default function TournamentScreen() {
           <View style={{ marginTop: spacing.lg }}>
             {tab === 'table' ? (
               standings.length > 0 ? (
-                <StandingsTable standings={standings} onSelect={setSelected} />
+                <>
+                  <View style={styles.tableToolbar}>
+                    <Text style={styles.tableHint}>Tap a row for full stats</Text>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        detailedTable ? 'Show compact table' : 'Show all table columns'
+                      }
+                      onPress={() => {
+                        Haptics.selectionAsync().catch(() => undefined);
+                        setDetailedTable((value) => !value);
+                      }}
+                      style={({ pressed }) => [
+                        styles.tableToggle,
+                        pressed && { opacity: 0.7 },
+                      ]}
+                    >
+                      <Ionicons
+                        name={detailedTable ? 'contract-outline' : 'expand-outline'}
+                        size={13}
+                        color={colors.accent}
+                      />
+                      <Text style={styles.tableToggleLabel}>
+                        {detailedTable ? 'Compact' : 'All stats'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                  <StandingsTable
+                    standings={standings}
+                    onSelect={setSelected}
+                    detailed={detailedTable}
+                  />
+                </>
               ) : (
                 <Card>
                   <EmptyState
@@ -788,6 +821,35 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginBottom: spacing.sm,
     marginLeft: spacing.xs,
+  },
+  tableToolbar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.xs,
+  },
+  tableHint: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  tableToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(44,229,155,0.25)',
+  },
+  tableToggleLabel: {
+    color: colors.accent,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
   matchCard: {
     flexDirection: 'row',
