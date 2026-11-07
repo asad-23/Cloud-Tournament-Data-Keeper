@@ -109,9 +109,9 @@ export default function TournamentScreen() {
   };
 
   const tournament = data?.tournament;
-  const participants = data?.participants ?? [];
-  const matches = data?.matches ?? [];
-  const standings = data?.standings ?? [];
+  const participants = useMemo(() => data?.participants ?? [], [data]);
+  const matches = useMemo(() => data?.matches ?? [], [data]);
+  const standings = useMemo(() => data?.standings ?? [], [data]);
 
   const isCreator = Boolean(user && tournament && user.id === tournament.creatorId);
   const isMember = data?.isMember ?? false;

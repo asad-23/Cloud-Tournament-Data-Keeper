@@ -12,8 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
-import { EmptyState, Pill, Screen, SectionTitle } from '@/components/ui';
-import { Avatar } from '@/components/ui';
+import { Avatar, EmptyState, Pill, Screen, SectionTitle } from '@/components/ui';
 import { TournamentCard } from '@/components/TournamentCard';
 import { useAuth } from '@/lib/auth';
 import { useMyTournaments } from '@/lib/queries';
