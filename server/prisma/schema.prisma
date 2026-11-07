@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TournamentStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+}
+
+enum MatchStatus {
+  SCHEDULED
+  PLAYED
+}
+
+model User {
+  id                 String        @id @default(cuid())
+  nickname           String        @unique
+  firstName          String
+  token              String        @unique
+  createdAt          DateTime      @default(now())
+  createdTournaments Tournament[]  @relation("Creator")
+  participations     Participant[]
+}
+
+model Tournament {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+  code        String           @unique
+  status      TournamentStatus @default(DRAFT)
+  maxPlayers  Int              @default(20)
+  creatorId   String
+  creator     User             @relation("Creator", fields: [creatorId], references: [id])
+  createdAt   DateTime         @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  participants Participant[]
+  matches     Match[]
+}
+
+model Participant {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  teamName     String
+  joinedAt     DateTime   @default(now())
+  homeMatches  Match[]    @relation("Home")
+  awayMatches  Match[]    @relation("Away")
+
+  @@unique([tournamentId, userId])
+}
+
+model Match {
+  id           String     @id @default(cuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  homeId       String
+  home         Participant @relation("Home", fields: [homeId], references: [id])
+  awayId       String
+  away         Participant @relation("Away", fields: [awayId], references: [id])
+  homeScore    Int?
+  awayScore    Int?
+  matchday     Int        @default(1)
+  status       MatchStatus @default(SCHEDULED)
+  playedAt     DateTime?
+  createdAt    DateTime   @default(now())
+
+  @@unique([tournamentId, homeId, awayId])
+}
