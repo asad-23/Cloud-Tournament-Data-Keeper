@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -64,13 +63,11 @@ export default function WelcomeScreen() {
   return (
     <Screen>
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <ScrollView
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
             showsVerticalScrollIndicator={false}
           >
             <View>

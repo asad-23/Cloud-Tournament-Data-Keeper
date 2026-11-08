@@ -3,8 +3,8 @@ import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -53,10 +53,7 @@ export function LinkAccountSheet({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.backdrop}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={styles.backdrop} behavior="padding">
         <Animated.View entering={FadeIn.duration(150)} style={StyleSheet.absoluteFill}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
@@ -77,34 +74,42 @@ export function LinkAccountSheet({
             the app. Their name, matches and stats stay exactly as they are.
           </Text>
 
-          <Field
-            label="Their nickname"
-            icon="at-outline"
-            placeholder="e.g. asad_10"
-            autoCapitalize="none"
-            autoCorrect={false}
-            maxLength={20}
-            value={nickname}
-            onChangeText={setNickname}
-            onSubmitEditing={submit}
-            returnKeyType="done"
-            style={{ marginTop: spacing.lg }}
-          />
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={styles.bodyContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
+          >
+            <Field
+              label="Their nickname"
+              icon="at-outline"
+              placeholder="e.g. asad_10"
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={20}
+              value={nickname}
+              onChangeText={setNickname}
+              onSubmitEditing={submit}
+              returnKeyType="done"
+              style={{ marginTop: spacing.lg }}
+            />
 
-          {message ? (
-            <View style={styles.errorRow}>
-              <Ionicons name="alert-circle" size={15} color={colors.danger} />
-              <Text style={styles.errorText}>{message}</Text>
-            </View>
-          ) : null}
+            {message ? (
+              <View style={styles.errorRow}>
+                <Ionicons name="alert-circle" size={15} color={colors.danger} />
+                <Text style={styles.errorText}>{message}</Text>
+              </View>
+            ) : null}
 
-          <PrimaryButton
-            label="Link account"
-            icon="link"
-            loading={loading}
-            onPress={submit}
-            style={{ marginTop: spacing.xl }}
-          />
+            <PrimaryButton
+              label="Link account"
+              icon="link"
+              loading={loading}
+              onPress={submit}
+              style={{ marginTop: spacing.xl }}
+            />
+          </ScrollView>
         </Animated.View>
       </KeyboardAvoidingView>
     </Modal>
@@ -118,6 +123,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
+    maxHeight: '100%',
     backgroundColor: colors.bgElevated,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
@@ -125,6 +131,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
+  },
+  body: {
+    flexShrink: 1,
+  },
+  bodyContent: {
+    paddingBottom: spacing.xs,
   },
   handle: {
     width: 40,

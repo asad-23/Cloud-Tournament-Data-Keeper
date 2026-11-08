@@ -6,7 +6,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   Share,
   StyleSheet,
@@ -16,14 +15,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useToast } from '@/components/Toast';
 import {
+  Avatar,
   Card,
   Field,
   IconButton,
+  Pill,
   PrimaryButton,
   Screen,
   SecondaryButton,
 } from '@/components/ui';
 import { ApiError } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { useCreateTournament } from '@/lib/queries';
 import { colors, gradients, radius, spacing } from '@/lib/theme';
 
@@ -32,10 +34,10 @@ type Created = { id: string; name: string; code: string };
 export default function CreateTournamentScreen() {
   const router = useRouter();
   const toast = useToast();
+  const { user } = useAuth();
   const create = useCreateTournament();
 
   const [name, setName] = useState('');
-  const [teamName, setTeamName] = useState('');
   const [description, setDescription] = useState('');
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [error, setError] = useState<string | null>(null);
@@ -48,15 +50,10 @@ export default function CreateTournamentScreen() {
       setError('Tournament name must be at least 3 characters.');
       return;
     }
-    if (teamName.trim().length < 1) {
-      setError('Enter the team name you will use.');
-      return;
-    }
 
     create.mutate(
       {
         name: name.trim(),
-        teamName: teamName.trim(),
         description: description.trim() || undefined,
         maxPlayers,
       },
@@ -101,13 +98,11 @@ export default function CreateTournamentScreen() {
           <View style={{ width: 42 }} />
         </View>
 
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <ScrollView
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
             showsVerticalScrollIndicator={false}
           >
             {created ? (
@@ -163,7 +158,7 @@ export default function CreateTournamentScreen() {
                     </View>
                     <Text style={styles.introTitle}>Set up your league</Text>
                     <Text style={styles.introText}>
-                      You will be added as the first competitor. A join code is generated
+                      You will be added as the first player. A join code is generated
                       automatically.
                     </Text>
                   </LinearGradient>
@@ -179,15 +174,19 @@ export default function CreateTournamentScreen() {
                       value={name}
                       onChangeText={setName}
                     />
-                    <Field
-                      label="Your team name"
-                      icon="shield-outline"
-                      placeholder="e.g. Barcelona"
-                      maxLength={30}
-                      value={teamName}
-                      onChangeText={setTeamName}
-                      style={{ marginTop: spacing.lg }}
-                    />
+                    <View style={styles.playerCard}>
+                      <Avatar name={user?.firstName ?? 'Player'} size={42} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.playerLabel}>Your player name</Text>
+                        <Text style={styles.playerName} numberOfLines={1}>
+                          {user?.firstName ?? 'Player'}
+                        </Text>
+                      </View>
+                      <Pill label="You" color={colors.accent} background={colors.accentSoft} />
+                    </View>
+                    <Text style={styles.playerHint}>
+                      Your account first name is used as your player name in every tournament.
+                    </Text>
                     <Field
                       label="Description (optional)"
                       icon="document-text-outline"
@@ -285,6 +284,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     marginTop: 4,
+  },
+  playerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+    backgroundColor: colors.bgElevated,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  playerLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  playerName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 1,
+  },
+  playerHint: {
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: spacing.sm,
   },
   stepperBlock: {
     marginTop: spacing.lg,

@@ -14,7 +14,7 @@ const STEPS = [
   {
     icon: 'add-circle-outline' as const,
     title: 'Create a tournament',
-    text: 'Pick a name and your team. You get a 6-character code.',
+    text: 'Pick a tournament name and play as yourself. You get a 6-character code.',
   },
   {
     icon: 'people-outline' as const,

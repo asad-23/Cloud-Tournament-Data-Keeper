@@ -4,24 +4,32 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
   KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Card, Field, IconButton, PrimaryButton, Screen } from '@/components/ui';
+import {
+  Avatar,
+  Card,
+  Field,
+  IconButton,
+  Pill,
+  PrimaryButton,
+  Screen,
+} from '@/components/ui';
 import { ApiError } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 import { useJoinTournament } from '@/lib/queries';
 import { colors, gradients, radius, spacing } from '@/lib/theme';
 
 export default function JoinTournamentScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const join = useJoinTournament();
 
   const [code, setCode] = useState('');
-  const [teamName, setTeamName] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const submit = () => {
@@ -31,13 +39,9 @@ export default function JoinTournamentScreen() {
       setError('Enter the code shared by the tournament creator.');
       return;
     }
-    if (teamName.trim().length < 1) {
-      setError('Enter the team name you will use.');
-      return;
-    }
 
     join.mutate(
-      { code: code.trim().toUpperCase(), teamName: teamName.trim() },
+      { code: code.trim().toUpperCase() },
       {
         onSuccess: (result) => {
           router.replace(`/tournament/${result.tournament.id}`);
@@ -58,13 +62,11 @@ export default function JoinTournamentScreen() {
           <View style={{ width: 42 }} />
         </View>
 
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
           <ScrollView
             contentContainerStyle={styles.content}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
             showsVerticalScrollIndicator={false}
           >
             <View>
@@ -74,8 +76,8 @@ export default function JoinTournamentScreen() {
                 </View>
                 <Text style={styles.introTitle}>Got an invite code?</Text>
                 <Text style={styles.introText}>
-                  Ask the creator for the 6-character code. You join as a competitor with your
-                  own team name.
+                  Ask the creator for the 6-character code. You join as a player under your
+                  account first name.
                 </Text>
               </LinearGradient>
             </View>
@@ -94,15 +96,19 @@ export default function JoinTournamentScreen() {
                   style={styles.codeField}
                 />
 
-                <Field
-                  label="Your team name"
-                  icon="shield-outline"
-                  placeholder="e.g. Real Madrid"
-                  maxLength={30}
-                  value={teamName}
-                  onChangeText={setTeamName}
-                  style={{ marginTop: spacing.lg }}
-                />
+                <View style={styles.playerCard}>
+                  <Avatar name={user?.firstName ?? 'Player'} size={42} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.playerLabel}>Your player name</Text>
+                    <Text style={styles.playerName} numberOfLines={1}>
+                      {user?.firstName ?? 'Player'}
+                    </Text>
+                  </View>
+                  <Pill label="You" color={colors.accent} background={colors.accentSoft} />
+                </View>
+                <Text style={styles.playerHint}>
+                  Your account first name is used as your player name in every tournament.
+                </Text>
 
                 {error ? (
                   <View style={styles.errorRow}>
@@ -179,6 +185,36 @@ const styles = StyleSheet.create({
   },
   codeField: {
     marginTop: spacing.xs,
+  },
+  playerCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+    backgroundColor: colors.bgElevated,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.md,
+  },
+  playerLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  playerName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '800',
+    marginTop: 1,
+  },
+  playerHint: {
+    color: colors.textMuted,
+    fontSize: 11,
+    lineHeight: 16,
+    marginTop: spacing.sm,
   },
   errorRow: {
     flexDirection: 'row',

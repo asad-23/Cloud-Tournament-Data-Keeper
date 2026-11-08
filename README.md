@@ -76,8 +76,9 @@ your laptop's LAN IP on port 4000, so phone and laptop must be on the same Wi-Fi
    tied to the device, so one phone can only ever use one account.
 2. **Create a tournament** — you become the admin and the first player. A
    6-character join code is generated immediately.
-3. **Share the code** — friends tap *Join* and enter it plus their team name.
-   The code works until the admin finishes the tournament.
+3. **Share the code** — friends tap *Join* and enter it. Every player competes
+   under their account first name. The code works until the admin finishes the
+   tournament.
 4. **Add matches manually** — there are no fixtures. Any active player (or the
    admin) picks two active players and enters the final score; the match appears
    in the Matches tab and the table recalculates instantly.
@@ -134,7 +135,7 @@ This is simple, not bank-grade security — perfect for friend leagues.
 | DELETE | `/api/tournaments/:id` | admin | delete the tournament |
 
 Standings rules: 3 points for a win, 1 for a draw. Tie-break by goal difference,
-then goals scored, then team name. Form = last 5 results.
+then goals scored, then player name. Form = last 5 results.
 
 ## Build an APK
 

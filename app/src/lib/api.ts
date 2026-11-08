@@ -109,7 +109,7 @@ export const api = {
 
   createTournament: (body: {
     name: string;
-    teamName: string;
+    teamName?: string;
     description?: string;
     maxPlayers?: number;
   }) =>
@@ -118,7 +118,7 @@ export const api = {
       participant: { id: string; teamName: string };
     }>('/tournaments', { method: 'POST', body }),
 
-  joinTournament: (body: { code: string; teamName: string }) =>
+  joinTournament: (body: { code: string; teamName?: string }) =>
     request<{
       tournament: { id: string; name: string; code: string };
       participant: { id: string; teamName: string };

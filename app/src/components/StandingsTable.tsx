@@ -80,7 +80,7 @@ export function StandingsTable({
       <View style={styles.header}>
         <Text style={[styles.headerLabel, posWidth ? { width: posWidth } : styles.posCol]}>#</Text>
         <Text style={[styles.headerLabel, teamWidth ? { width: teamWidth } : styles.teamCol]}>
-          Team
+          Player
         </Text>
         {columns.map((column) => (
           <Text

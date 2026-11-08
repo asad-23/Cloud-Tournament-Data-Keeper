@@ -8,12 +8,17 @@
     "icon": "./assets/icon.png",
     "scheme": "pesleague",
     "userInterfaceStyle": "dark",
+    "backgroundColor": "#060910",
+    "primaryColor": "#2CE59B",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.asad.pesleague"
+      "bundleIdentifier": "com.asad.pesleague",
+      "backgroundColor": "#060910"
     },
     "android": {
       "package": "com.asad.pesleague",
+      "backgroundColor": "#060910",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#060910",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -23,7 +28,9 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "backgroundColor": "#060910",
+      "themeColor": "#060910"
     },
     "plugins": [
       "expo-router",

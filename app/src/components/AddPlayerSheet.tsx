@@ -3,7 +3,6 @@ import { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -52,10 +51,7 @@ export function AddPlayerSheet({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView
-        style={styles.backdrop}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <KeyboardAvoidingView style={styles.backdrop} behavior="padding">
         <Animated.View entering={FadeIn.duration(150)} style={StyleSheet.absoluteFill}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
@@ -75,7 +71,13 @@ export function AddPlayerSheet({
             Add someone without the app. You can link their account later.
           </Text>
 
-          <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={styles.bodyContent}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            showsVerticalScrollIndicator={false}
+          >
             <Field
               label="Player name"
               icon="person-outline"
@@ -125,6 +127,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
+    maxHeight: '100%',
     backgroundColor: colors.bgElevated,
     borderTopLeftRadius: radius.xl,
     borderTopRightRadius: radius.xl,
@@ -132,6 +135,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
+  },
+  body: {
+    flexShrink: 1,
+  },
+  bodyContent: {
+    paddingBottom: spacing.xs,
   },
   handle: {
     width: 40,

@@ -130,12 +130,13 @@ router.post(
     const body = z
       .object({
         name: tournamentNameSchema,
-        teamName: playerNameSchema,
+        teamName: playerNameSchema.optional(),
         description: z.string().trim().max(240).optional(),
         maxPlayers: z.number().int().min(2).max(64).optional(),
       })
       .parse(req.body);
 
+    const playerName = body.teamName ?? req.user!.firstName;
     const code = await uniqueCode();
 
     const tournament = await prisma.tournament.create({
@@ -148,7 +149,7 @@ router.post(
         startedAt: new Date(),
         creatorId: req.user!.id,
         participants: {
-          create: { userId: req.user!.id, teamName: body.teamName },
+          create: { userId: req.user!.id, teamName: playerName },
         },
       },
       include: detailInclude,
@@ -177,7 +178,10 @@ router.post(
   requireAuth,
   h(async (req, res) => {
     const { code, teamName } = z
-      .object({ code: z.string().trim().min(4).max(12), teamName: playerNameSchema })
+      .object({
+        code: z.string().trim().min(4).max(12),
+        teamName: playerNameSchema.optional(),
+      })
       .parse(req.body);
 
     const tournament = await prisma.tournament.findUnique({
@@ -198,7 +202,11 @@ router.post(
     }
 
     const participant = await prisma.participant.create({
-      data: { tournamentId: tournament.id, userId: req.user!.id, teamName },
+      data: {
+        tournamentId: tournament.id,
+        userId: req.user!.id,
+        teamName: teamName ?? req.user!.firstName,
+      },
       include: participantInclude,
     });
 

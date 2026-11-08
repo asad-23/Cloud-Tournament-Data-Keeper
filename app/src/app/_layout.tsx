@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Stack } from 'expo-router';
+import { DarkTheme, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '@/components/Toast';
@@ -16,40 +16,57 @@ const queryClient = new QueryClient({
   },
 });
 
+// Keep the native navigator container dark so route changes never reveal a
+// white surface between screens.
+const navigationTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    primary: colors.accent,
+    background: colors.bg,
+    card: colors.bgElevated,
+    text: colors.text,
+    border: colors.border,
+    notification: colors.danger,
+  },
+};
+
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <ToastProvider>
-            <StatusBar style="light" />
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: colors.bg },
-                animation: 'fade',
-              }}
-            >
-              <Stack.Screen name="index" options={{ animation: 'none' }} />
-              <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
-              <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
-              <Stack.Screen name="tournament/[id]" options={{ animation: 'none' }} />
-              <Stack.Screen
-                name="create"
-                options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-              />
-              <Stack.Screen
-                name="join"
-                options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-              />
-              <Stack.Screen
-                name="match/[id]"
-                options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
-              />
-            </Stack>
-          </ToastProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+      <ThemeProvider value={navigationTheme}>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <ToastProvider>
+              <StatusBar style="light" />
+              <Stack
+                screenOptions={{
+                  headerShown: false,
+                  contentStyle: { backgroundColor: colors.bg },
+                  animation: 'none',
+                }}
+              >
+                <Stack.Screen name="index" />
+                <Stack.Screen name="welcome" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="tournament/[id]" />
+                <Stack.Screen
+                  name="create"
+                  options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen
+                  name="join"
+                  options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+                />
+                <Stack.Screen
+                  name="match/[id]"
+                  options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+                />
+              </Stack>
+            </ToastProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
