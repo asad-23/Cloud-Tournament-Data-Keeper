@@ -926,8 +926,10 @@ export default function TournamentScreen() {
         isAdmin={isAdmin}
         onClose={() => setSelected(null)}
         onLink={() => {
+          if (!selected) return;
           linkPlayer.reset();
           setLinkTarget(selected);
+          setSelected(null);
         }}
         onToggleDisabled={() => {
           if (selected) togglePlayerDisabled(selected);
@@ -939,6 +941,7 @@ export default function TournamentScreen() {
             participantId: selected.participantId,
             name: selected.teamName,
           });
+          setSelected(null);
         }}
       />
     </Screen>
