@@ -10,7 +10,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { EmptyState, Screen } from '@/components/ui';
 import { TournamentCard } from '@/components/TournamentCard';
 import { useExplore } from '@/lib/queries';
@@ -45,7 +44,7 @@ export default function ExploreScreen() {
             />
           }
         >
-          <Animated.View entering={FadeInDown.duration(420)} style={styles.banner}>
+          <View style={styles.banner}>
             <View style={styles.bannerIcon}>
               <Ionicons name="globe-outline" size={20} color={colors.accent} />
             </View>
@@ -55,7 +54,7 @@ export default function ExploreScreen() {
                 Anyone with the app can view these tournaments and their standings.
               </Text>
             </View>
-          </Animated.View>
+          </View>
 
           {isLoading ? (
             <View style={styles.loading}>
@@ -73,14 +72,11 @@ export default function ExploreScreen() {
             <EmptyState
               icon="globe-outline"
               title="No public tournaments yet"
-              message="Once a tournament starts, it shows up here for everyone to follow."
+              message="Once a tournament is created, it shows up here for everyone to follow."
             />
           ) : (
-            tournaments.map((tournament, index) => (
-              <Animated.View
-                key={tournament.id}
-                entering={FadeInDown.delay(60 + index * 40).duration(340)}
-              >
+            tournaments.map((tournament) => (
+              <View key={tournament.id}>
                 <TournamentCard
                   name={tournament.name}
                   status={tournament.status}
@@ -89,7 +85,7 @@ export default function ExploreScreen() {
                   matchCount={tournament.matchCount}
                   onPress={() => router.push(`/tournament/${tournament.id}`)}
                 />
-              </Animated.View>
+              </View>
             ))
           )}
 

@@ -4,8 +4,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { useToast } from '@/components/Toast';
 import {
   Avatar,
@@ -14,20 +12,19 @@ import {
   Pill,
   PrimaryButton,
   Screen,
-  SecondaryButton,
 } from '@/components/ui';
 import { ApiError } from '@/lib/api';
-import { useResetResult, useSetResult } from '@/lib/queries';
+import { useSetResult } from '@/lib/queries';
 import { colors, gradients, radius, spacing } from '@/lib/theme';
 
 function ScorePanel({
   name,
   value,
-  onChange,
+  onStep,
 }: {
   name: string;
   value: number;
-  onChange: (value: number) => void;
+  onStep: (delta: number) => void;
 }) {
   return (
     <View style={styles.panel}>
@@ -40,21 +37,21 @@ function ScorePanel({
           icon="remove"
           size={38}
           accessibilityLabel={`Decrease ${name} score`}
-          onPress={() => onChange(Math.max(0, value - 1))}
+          onPress={() => onStep(-1)}
         />
         <Text style={styles.score}>{value}</Text>
         <IconButton
           icon="add"
           size={38}
           accessibilityLabel={`Increase ${name} score`}
-          onPress={() => onChange(Math.min(99, value + 1))}
+          onPress={() => onStep(1)}
         />
       </View>
     </View>
   );
 }
 
-export default function RecordResultScreen() {
+export default function EditScoreScreen() {
   const router = useRouter();
   const toast = useToast();
   const params = useLocalSearchParams<{
@@ -64,20 +61,16 @@ export default function RecordResultScreen() {
     away: string;
     homeScore?: string;
     awayScore?: string;
-    matchday?: string;
   }>();
 
   const tournamentId = params.tournamentId;
   const matchId = params.matchId;
-  const hadResult = params.homeScore !== undefined && params.awayScore !== undefined;
 
   const [homeScore, setHomeScore] = useState(Number(params.homeScore ?? 0));
   const [awayScore, setAwayScore] = useState(Number(params.awayScore ?? 0));
   const [error, setError] = useState<string | null>(null);
-  const [confirmReset, setConfirmReset] = useState(false);
 
   const setResult = useSetResult(tournamentId);
-  const resetResult = useResetResult(tournamentId);
 
   const save = () => {
     setError(null);
@@ -85,29 +78,14 @@ export default function RecordResultScreen() {
       { matchId, homeScore, awayScore },
       {
         onSuccess: () => {
-          toast.show('Result saved', 'success');
+          toast.show('Score updated', 'success');
           router.back();
         },
         onError: (caught) => {
-          setError(caught instanceof ApiError ? caught.message : 'Could not save the result.');
+          setError(caught instanceof ApiError ? caught.message : 'Could not save the score.');
         },
       },
     );
-  };
-
-  const clear = () => {
-    setError(null);
-    resetResult.mutate(matchId, {
-      onSuccess: () => {
-        setConfirmReset(false);
-        toast.show('Result cleared', 'info');
-        router.back();
-      },
-      onError: (caught) => {
-        setConfirmReset(false);
-        setError(caught instanceof ApiError ? caught.message : 'Could not clear the result.');
-      },
-    });
   };
 
   return (
@@ -115,7 +93,7 @@ export default function RecordResultScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <IconButton icon="close" onPress={() => router.back()} />
-          <Text style={styles.headerTitle}>Record result</Text>
+          <Text style={styles.headerTitle}>Edit score</Text>
           <View style={{ width: 42 }} />
         </View>
 
@@ -123,84 +101,66 @@ export default function RecordResultScreen() {
           contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
-          <Animated.View entering={FadeInDown.duration(360)} style={styles.metaRow}>
+          <View style={styles.metaRow}>
             <Pill
-              label={`Matchday ${params.matchday ?? '1'}`}
-              color={colors.textDim}
-              background="rgba(255,255,255,0.06)"
-            />
-            <Pill
-              label={hadResult ? 'Edit result' : 'Scheduled'}
-              color={hadResult ? colors.warning : colors.accent}
-              background={hadResult ? 'rgba(255,176,32,0.12)' : colors.accentSoft}
+              label="Played"
+              color={colors.accent}
+              background={colors.accentSoft}
               dot
             />
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(60).duration(360)}>
-            <LinearGradient
-              colors={gradients.hero}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.scoreCard}
-            >
-              <ScorePanel name={params.home ?? 'Home'} value={homeScore} onChange={setHomeScore} />
-              <View style={styles.vs}>
-                <Text style={styles.vsText}>:</Text>
+          <LinearGradient
+            colors={gradients.hero}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.scoreCard}
+          >
+            <ScorePanel
+              name={params.home ?? 'Home'}
+              value={homeScore}
+              onStep={(delta) =>
+                setHomeScore((current) => Math.min(99, Math.max(0, current + delta)))
+              }
+            />
+            <View style={styles.vs}>
+              <Text style={styles.vsText}>:</Text>
+            </View>
+            <ScorePanel
+              name={params.away ?? 'Away'}
+              value={awayScore}
+              onStep={(delta) =>
+                setAwayScore((current) => Math.min(99, Math.max(0, current + delta)))
+              }
+            />
+          </LinearGradient>
+
+          <Card style={{ marginTop: spacing.lg }}>
+            <View style={styles.noteRow}>
+              <Ionicons name="information-circle-outline" size={17} color={colors.textMuted} />
+              <Text style={styles.note}>
+                Any player in this tournament can fix the score. Save and the table updates for
+                everyone.
+              </Text>
+            </View>
+
+            {error ? (
+              <View style={styles.errorRow}>
+                <Ionicons name="alert-circle" size={16} color={colors.danger} />
+                <Text style={styles.errorText}>{error}</Text>
               </View>
-              <ScorePanel name={params.away ?? 'Away'} value={awayScore} onChange={setAwayScore} />
-            </LinearGradient>
-          </Animated.View>
+            ) : null}
 
-          <Animated.View entering={FadeInDown.delay(120).duration(360)}>
-            <Card style={{ marginTop: spacing.lg }}>
-              <View style={styles.noteRow}>
-                <Ionicons name="information-circle-outline" size={17} color={colors.textMuted} />
-                <Text style={styles.note}>
-                  Any participant can record a result. Tap save and the league table updates
-                  for everyone.
-                </Text>
-              </View>
-
-              {error ? (
-                <View style={styles.errorRow}>
-                  <Ionicons name="alert-circle" size={16} color={colors.danger} />
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              ) : null}
-
-              <PrimaryButton
-                label={hadResult ? 'Update result' : 'Save result'}
-                icon="checkmark"
-                loading={setResult.isPending}
-                onPress={save}
-                style={{ marginTop: spacing.lg }}
-              />
-
-              {hadResult ? (
-                <SecondaryButton
-                  label="Clear result"
-                  icon="trash-outline"
-                  onPress={() => setConfirmReset(true)}
-                  loading={resetResult.isPending}
-                  style={{ marginTop: spacing.md }}
-                />
-              ) : null}
-            </Card>
-          </Animated.View>
+            <PrimaryButton
+              label="Save score"
+              icon="checkmark"
+              loading={setResult.isPending}
+              onPress={save}
+              style={{ marginTop: spacing.lg }}
+            />
+          </Card>
         </ScrollView>
       </SafeAreaView>
-
-      <ConfirmDialog
-        visible={confirmReset}
-        title="Clear this result?"
-        message="The match will go back to scheduled and the standings will be recalculated."
-        confirmLabel="Clear result"
-        destructive
-        icon="trash-outline"
-        onConfirm={clear}
-        onCancel={() => setConfirmReset(false)}
-      />
     </Screen>
   );
 }

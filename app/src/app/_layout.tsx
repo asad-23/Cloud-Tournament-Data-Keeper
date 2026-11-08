@@ -27,12 +27,13 @@ export default function RootLayout() {
               screenOptions={{
                 headerShown: false,
                 contentStyle: { backgroundColor: colors.bg },
-                animation: 'slide_from_right',
+                animation: 'fade',
               }}
             >
-              <Stack.Screen name="index" options={{ animation: 'fade' }} />
+              <Stack.Screen name="index" options={{ animation: 'none' }} />
               <Stack.Screen name="welcome" options={{ animation: 'fade' }} />
-              <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+              <Stack.Screen name="(tabs)" options={{ animation: 'none' }} />
+              <Stack.Screen name="tournament/[id]" options={{ animation: 'none' }} />
               <Stack.Screen
                 name="create"
                 options={{ presentation: 'modal', animation: 'slide_from_bottom' }}

@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Avatar, EmptyState, Pill, Screen, SectionTitle } from '@/components/ui';
 import { TournamentCard } from '@/components/TournamentCard';
 import { useAuth } from '@/lib/auth';
@@ -56,10 +55,10 @@ export default function HomeScreen() {
             />
           }
         >
-          <Animated.View entering={FadeInDown.duration(420)}>
+          <View>
             <Text style={styles.greeting}>Hey, {user?.firstName ?? 'player'} 👋</Text>
             <View style={styles.greetingRow}>
-              <Text style={styles.subGreeting}>Ready for matchday?</Text>
+              <Text style={styles.subGreeting}>Ready to play?</Text>
               {liveCount > 0 ? (
                 <Pill
                   label={`${liveCount} live`}
@@ -69,9 +68,9 @@ export default function HomeScreen() {
                 />
               ) : null}
             </View>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(80).duration(420)} style={styles.actions}>
+          <View style={styles.actions}>
             <Pressable
               onPress={() => router.push('/create')}
               style={({ pressed }) => [styles.actionWrap, pressed && { opacity: 0.9, transform: [{ scale: 0.98 }] }]}
@@ -102,9 +101,9 @@ export default function HomeScreen() {
                 <Text style={styles.actionSubtitle}>Enter a code</Text>
               </View>
             </Pressable>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(140).duration(420)}>
+          <View>
             <Pressable
               onPress={() => router.push('/explore')}
               style={({ pressed }) => [styles.exploreRow, pressed && { opacity: 0.8 }]}
@@ -118,9 +117,9 @@ export default function HomeScreen() {
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
             </Pressable>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(200).duration(420)}>
+          <View>
             <SectionTitle
               title="Your tournaments"
               subtitle={
@@ -159,11 +158,8 @@ export default function HomeScreen() {
                 />
               </View>
             ) : (
-              tournaments.map((tournament, index) => (
-                <Animated.View
-                  key={tournament.id}
-                  entering={FadeInDown.delay(80 + index * 50).duration(360)}
-                >
+              tournaments.map((tournament) => (
+                <View key={tournament.id}>
                   <TournamentCard
                     name={tournament.name}
                     status={tournament.status}
@@ -176,10 +172,10 @@ export default function HomeScreen() {
                     matchCount={tournament.matchCount}
                     onPress={() => router.push(`/tournament/${tournament.id}`)}
                   />
-                </Animated.View>
+                </View>
               ))
             )}
-          </Animated.View>
+          </View>
 
           <View style={{ height: spacing.xxl }} />
         </ScrollView>

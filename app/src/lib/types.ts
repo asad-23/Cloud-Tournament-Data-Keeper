@@ -4,16 +4,17 @@ export type User = {
   firstName: string;
 };
 
-export type TournamentStatus = 'DRAFT' | 'ACTIVE' | 'COMPLETED';
+export type TournamentStatus = 'ACTIVE' | 'COMPLETED';
 export type MatchStatus = 'SCHEDULED' | 'PLAYED';
 export type FormResult = 'W' | 'D' | 'L';
 
 export type StandingRow = {
   participantId: string;
-  userId: string;
+  userId: string | null;
   nickname: string;
   firstName: string;
   teamName: string;
+  disabled: boolean;
   played: number;
   won: number;
   drawn: number;
@@ -29,8 +30,10 @@ export type StandingRow = {
 export type Participant = {
   id: string;
   teamName: string;
+  nickname: string | null;
+  disabled: boolean;
   joinedAt: string;
-  user: User;
+  user: User | null;
 };
 
 export type Match = {
@@ -40,7 +43,6 @@ export type Match = {
   awayId: string;
   homeScore: number | null;
   awayScore: number | null;
-  matchday: number;
   status: MatchStatus;
   playedAt: string | null;
   createdAt: string;

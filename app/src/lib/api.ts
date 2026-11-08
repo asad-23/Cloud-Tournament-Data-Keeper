@@ -2,6 +2,7 @@ import Constants from 'expo-constants';
 import type {
   ExploreTournament,
   Match,
+  Participant,
   TournamentDetail,
   TournamentSummary,
   User,
@@ -92,10 +93,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const api = {
-  register: (body: { nickname: string; firstName: string }) =>
+  register: (body: { nickname: string; firstName: string; deviceId: string }) =>
     request<{ token: string; user: User }>('/auth/register', { method: 'POST', body }),
 
-  login: (body: { nickname: string; firstName: string }) =>
+  login: (body: { nickname: string; firstName: string; deviceId: string }) =>
     request<{ token: string; user: User }>('/auth/login', { method: 'POST', body }),
 
   me: () => request<{ user: User }>('/auth/me'),
@@ -123,9 +124,41 @@ export const api = {
       participant: { id: string; teamName: string };
     }>('/tournaments/join', { method: 'POST', body }),
 
-  startTournament: (id: string) =>
-    request<{ ok: boolean; matchesCreated: number }>(`/tournaments/${id}/start`, {
+  addMatch: (
+    tournamentId: string,
+    body: { homeId: string; awayId: string; homeScore: number; awayScore: number },
+  ) => request<{ match: Match }>(`/tournaments/${tournamentId}/matches`, { method: 'POST', body }),
+
+  deleteMatch: (tournamentId: string, matchId: string) =>
+    request<{ ok: boolean }>(`/tournaments/${tournamentId}/matches/${matchId}`, {
+      method: 'DELETE',
+    }),
+
+  addPlayer: (tournamentId: string, body: { name: string; nickname?: string }) =>
+    request<{ participant: Participant }>(`/tournaments/${tournamentId}/participants`, {
       method: 'POST',
+      body,
+    }),
+
+  updatePlayer: (
+    tournamentId: string,
+    participantId: string,
+    body: { name?: string; nickname?: string | null; disabled?: boolean },
+  ) =>
+    request<{ participant: Participant }>(
+      `/tournaments/${tournamentId}/participants/${participantId}`,
+      { method: 'PATCH', body },
+    ),
+
+  linkPlayer: (tournamentId: string, participantId: string, nickname: string) =>
+    request<{ participant: Participant }>(
+      `/tournaments/${tournamentId}/participants/${participantId}/link`,
+      { method: 'POST', body: { nickname } },
+    ),
+
+  deletePlayer: (tournamentId: string, participantId: string) =>
+    request<{ ok: boolean }>(`/tournaments/${tournamentId}/participants/${participantId}`, {
+      method: 'DELETE',
     }),
 
   finishTournament: (id: string) =>
@@ -142,11 +175,6 @@ export const api = {
     method: 'POST',
     body,
   }),
-
-  resetResult: (tournamentId: string, matchId: string) =>
-    request<{ match: Match }>(`/tournaments/${tournamentId}/matches/${matchId}/result`, {
-      method: 'DELETE',
-    }),
 
   deleteTournament: (id: string) =>
     request<{ ok: boolean }>(`/tournaments/${id}`, { method: 'DELETE' }),

@@ -11,7 +11,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Card, Field, IconButton, PrimaryButton, Screen } from '@/components/ui';
 import { ApiError } from '@/lib/api';
 import { useJoinTournament } from '@/lib/queries';
@@ -68,7 +67,7 @@ export default function JoinTournamentScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Animated.View entering={FadeInDown.duration(360)}>
+            <View>
               <LinearGradient colors={gradients.hero} style={styles.intro}>
                 <View style={styles.introIcon}>
                   <Ionicons name="key" size={22} color={colors.purple} />
@@ -79,9 +78,9 @@ export default function JoinTournamentScreen() {
                   own team name.
                 </Text>
               </LinearGradient>
-            </Animated.View>
+            </View>
 
-            <Animated.View entering={FadeInDown.delay(80).duration(360)}>
+            <View>
               <Card style={{ marginTop: spacing.lg }}>
                 <Field
                   label="Join code"
@@ -120,10 +119,10 @@ export default function JoinTournamentScreen() {
                   style={{ marginTop: spacing.xl }}
                 />
               </Card>
-            </Animated.View>
+            </View>
 
             <Text style={styles.helper}>
-              Codes only work while the tournament is in draft. Once it starts, new players
+              Codes work while the tournament is live. Once the admin finishes it, new players
               cannot join.
             </Text>
 

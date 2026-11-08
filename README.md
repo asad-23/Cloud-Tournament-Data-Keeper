@@ -1,10 +1,10 @@
 # PES League — Tournament Manager
 
 A global football tournament tracker for PES Mobile. Create a league, share a
-6-character join code, record results, and let anyone with the app see live
-standings, matches, players and stats.
+6-character join code, add matches as they are played, and let anyone with the
+app see live standings, matches, players and stats.
 
-Dark UI, smooth animations, custom dialogs, and a public global feed.
+Dark UI, animated popups only, custom dialogs, and a public global feed.
 
 ## Stack
 
@@ -72,40 +72,66 @@ your laptop's LAN IP on port 4000, so phone and laptop must be on the same Wi-Fi
 
 ## How it works
 
-1. **Register** with a unique nickname + first name (no password).
-2. **Create a tournament** — you become the first competitor and get a join code.
+1. **Register** with a unique nickname + first name (no password). The account is
+   tied to the device, so one phone can only ever use one account.
+2. **Create a tournament** — you become the admin and the first player. A
+   6-character join code is generated immediately.
 3. **Share the code** — friends tap *Join* and enter it plus their team name.
-4. **Start the league** — round-robin fixtures are generated automatically.
-5. **Record results** — any participant can enter or edit a score; the table,
-   form guide and stats update instantly.
-6. **Anyone** can open a tournament from the global *Explore* feed and view the
-   standings.
+   The code works until the admin finishes the tournament.
+4. **Add matches manually** — there are no fixtures. The admin picks two active
+   players and enters the final score; the match appears in the Matches tab and
+   the table recalculates instantly.
+5. **Fix scores** — any active player or the admin can edit a score. The admin
+   can also delete any match.
+6. **Manage players** — the admin can add a player by name + nickname (no app
+   needed yet), link that placeholder to a real account later without losing
+   matches or stats, disable/enable a player, or delete a player and their
+   matches.
+7. **Anyone** can open a tournament from the global *Explore* feed and view the
+   table, matches, players and stats.
+
+### Tournament page
+
+The tournament screen has four bottom tabs:
+
+| Tab | Contents |
+| --- | -------- |
+| **Table** | Join code, top-3 leaderboard, full standings with a compact/all-stats toggle |
+| **Matches** | Match list with score edit and admin delete; admin *Add match* |
+| **Players** | Player names only; tap one for info + stats; admin *Add player* |
+| **Stats** | Leaderboard, league-wide stats, biggest win, clean sheets and form guide |
 
 ### Identity note
 
 There are no passwords by design. The server issues a device token stored in
-SecureStore. If the app data is cleared, use *"I have a nickname"* on the login
-screen with the same nickname + first name to recover access. This is simple,
-not bank-grade security — perfect for friend leagues.
+SecureStore, and each account is locked to the device that created it. A second
+account cannot be created on the same device, and an account cannot be used from
+another device. Clearing app data resets the local device ID, so use the same
+nickname + first name on *"I have a nickname"* to recover access on that phone.
+This is simple, not bank-grade security — perfect for friend leagues.
 
 ## API
 
 | Method | Path | Auth | Purpose |
 | ------ | ---- | ---- | ------- |
-| POST | `/api/auth/register` | – | create profile |
-| POST | `/api/auth/login` | – | recover by nickname + first name |
+| POST | `/api/auth/register` | – | create profile (nickname, first name, deviceId) |
+| POST | `/api/auth/login` | – | recover on the same device |
 | GET | `/api/auth/me` | ✅ | current user |
 | GET | `/api/tournaments` | ✅ | my tournaments |
 | GET | `/api/tournaments/explore` | – | global public feed |
 | GET | `/api/tournaments/:id` | optional | detail + standings + matches |
-| POST | `/api/tournaments` | ✅ | create |
+| POST | `/api/tournaments` | ✅ | create (creator becomes admin + player) |
 | POST | `/api/tournaments/join` | ✅ | join with code |
-| POST | `/api/tournaments/:id/start` | creator | generate fixtures |
-| POST | `/api/tournaments/:id/finish` | creator | finish |
-| POST | `/api/tournaments/:id/code` | creator | rotate code |
-| POST | `/api/tournaments/:id/matches/:matchId/result` | participant | save score |
-| DELETE | `/api/tournaments/:id/matches/:matchId/result` | participant | clear score |
-| DELETE | `/api/tournaments/:id` | creator | delete |
+| POST | `/api/tournaments/:id/finish` | admin | finish |
+| POST | `/api/tournaments/:id/code` | admin | rotate code |
+| POST | `/api/tournaments/:id/participants` | admin | add a player |
+| PATCH | `/api/tournaments/:id/participants/:participantId` | admin | rename, disable/enable |
+| POST | `/api/tournaments/:id/participants/:participantId/link` | admin | link placeholder to an account |
+| DELETE | `/api/tournaments/:id/participants/:participantId` | admin | delete player + their matches |
+| POST | `/api/tournaments/:id/matches` | admin | add a played match with a score |
+| DELETE | `/api/tournaments/:id/matches/:matchId` | admin | delete a match |
+| POST | `/api/tournaments/:id/matches/:matchId/result` | player/admin | edit a score |
+| DELETE | `/api/tournaments/:id` | admin | delete the tournament |
 
 Standings rules: 3 points for a win, 1 for a draw. Tie-break by goal difference,
 then goals scored, then team name. Form = last 5 results.

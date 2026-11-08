@@ -55,17 +55,6 @@ export function useJoinTournament() {
   });
 }
 
-export function useStartTournament(id: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: () => api.startTournament(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
-      queryClient.invalidateQueries({ queryKey: ['my-tournaments'] });
-    },
-  });
-}
-
 export function useFinishTournament(id: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -74,6 +63,84 @@ export function useFinishTournament(id: string) {
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
       queryClient.invalidateQueries({ queryKey: ['my-tournaments'] });
       queryClient.invalidateQueries({ queryKey: queryKeys.explore });
+    },
+  });
+}
+
+export function useAddMatch(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: {
+      homeId: string;
+      awayId: string;
+      homeScore: number;
+      awayScore: number;
+    }) => api.addMatch(id, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
+      queryClient.invalidateQueries({ queryKey: ['my-tournaments'] });
+    },
+  });
+}
+
+export function useDeleteMatch(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (matchId: string) => api.deleteMatch(id, matchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
+      queryClient.invalidateQueries({ queryKey: ['my-tournaments'] });
+    },
+  });
+}
+
+export function useAddPlayer(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { name: string; nickname?: string }) => api.addPlayer(id, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
+      queryClient.invalidateQueries({ queryKey: ['my-tournaments'] });
+    },
+  });
+}
+
+export function useUpdatePlayer(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      participantId,
+      ...body
+    }: {
+      participantId: string;
+      name?: string;
+      nickname?: string | null;
+      disabled?: boolean;
+    }) => api.updatePlayer(id, participantId, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
+    },
+  });
+}
+
+export function useLinkPlayer(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ participantId, nickname }: { participantId: string; nickname: string }) =>
+      api.linkPlayer(id, participantId, nickname),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
+    },
+  });
+}
+
+export function useDeletePlayer(id: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (participantId: string) => api.deletePlayer(id, participantId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(id) });
+      queryClient.invalidateQueries({ queryKey: ['my-tournaments'] });
     },
   });
 }
@@ -100,16 +167,6 @@ export function useSetResult(tournamentId: string) {
       homeScore: number;
       awayScore: number;
     }) => api.setResult(tournamentId, matchId, { homeScore, awayScore }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.tournament(tournamentId) });
-    },
-  });
-}
-
-export function useResetResult(tournamentId: string) {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (matchId: string) => api.resetResult(tournamentId, matchId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.tournament(tournamentId) });
     },

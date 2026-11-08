@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInUp } from 'react-native-reanimated';
 import { colors, gradients, radius, spacing } from '@/lib/theme';
 import type { StandingRow } from '@/lib/types';
 import { Avatar } from './ui';
@@ -22,9 +21,8 @@ export function Podium({ standings }: { standings: StandingRow[] }) {
 
   return (
     <View style={styles.wrap}>
-      {order.map((row, index) => {
+      {order.map((row) => {
         const isChampion = row.position === 1;
-        const delay = isChampion ? 80 : 160 + index * 60;
         const palette =
           row.position === 1
             ? gradients.gold
@@ -33,11 +31,7 @@ export function Podium({ standings }: { standings: StandingRow[] }) {
               : gradients.purple;
 
         return (
-          <Animated.View
-            key={row.participantId}
-            entering={FadeInUp.delay(delay).springify().damping(14)}
-            style={[styles.column, isChampion && styles.championColumn]}
-          >
+          <View key={row.participantId} style={[styles.column, isChampion && styles.championColumn]}>
             {isChampion ? (
               <View style={styles.crown}>
                 <Ionicons name="trophy" size={16} color={colors.gold} />
@@ -58,7 +52,7 @@ export function Podium({ standings }: { standings: StandingRow[] }) {
             >
               <Text style={styles.position}>{row.position}</Text>
             </LinearGradient>
-          </Animated.View>
+          </View>
         );
       })}
     </View>

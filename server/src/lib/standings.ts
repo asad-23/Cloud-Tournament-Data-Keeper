@@ -2,10 +2,11 @@ export type FormResult = 'W' | 'D' | 'L';
 
 export interface StandingRow {
   participantId: string;
-  userId: string;
+  userId: string | null;
   nickname: string;
   firstName: string;
   teamName: string;
+  disabled: boolean;
   played: number;
   won: number;
   drawn: number;
@@ -21,7 +22,9 @@ export interface StandingRow {
 interface ParticipantInput {
   id: string;
   teamName: string;
-  user: { id: string; nickname: string; firstName: string };
+  nickname: string | null;
+  disabled: boolean;
+  user: { id: string; nickname: string; firstName: string } | null;
 }
 
 interface MatchInput {
@@ -42,10 +45,11 @@ export function computeStandings(
   for (const p of participants) {
     rows.set(p.id, {
       participantId: p.id,
-      userId: p.user.id,
-      nickname: p.user.nickname,
-      firstName: p.user.firstName,
+      userId: p.user?.id ?? null,
+      nickname: p.user?.nickname ?? p.nickname ?? 'guest',
+      firstName: p.user?.firstName ?? '',
       teamName: p.teamName,
+      disabled: p.disabled,
       played: 0,
       won: 0,
       drawn: 0,

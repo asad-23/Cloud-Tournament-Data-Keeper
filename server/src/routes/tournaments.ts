@@ -3,7 +3,6 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { generateCode } from '../lib/code';
-import { roundRobin } from '../lib/fixtures';
 import { computeStandings } from '../lib/standings';
 import { HttpError } from '../lib/http';
 import { optionalAuth, requireAuth } from '../middleware/auth';
@@ -15,8 +14,14 @@ const h =
   (req: any, res: any, next: any) =>
     fn(req, res).catch(next);
 
-const teamNameSchema = z.string().trim().min(1, 'Team name is required').max(30);
-const nameSchema = z.string().trim().min(3, 'Tournament name is too short').max(60);
+const playerNameSchema = z.string().trim().min(1, 'Player name is required').max(30);
+const guestNicknameSchema = z
+  .string()
+  .trim()
+  .min(1, 'Nickname is required')
+  .max(20, 'Nickname is too long');
+const tournamentNameSchema = z.string().trim().min(3, 'Tournament name is too short').max(60);
+const scoreSchema = z.number().int().min(0).max(99);
 
 async function uniqueCode(): Promise<string> {
   for (let attempt = 0; attempt < 12; attempt += 1) {
@@ -38,30 +43,53 @@ const detailInclude = {
     include: participantInclude,
   },
   matches: {
-    orderBy: [{ matchday: 'asc' }, { createdAt: 'asc' }],
+    orderBy: { createdAt: 'desc' },
   },
 } satisfies Prisma.TournamentInclude;
 
-function serializeParticipant(p: any) {
+function serializeParticipant(p: {
+  id: string;
+  teamName: string;
+  nickname: string | null;
+  disabled: boolean;
+  joinedAt: Date;
+  user: { id: string; nickname: string; firstName: string } | null;
+}) {
   return {
     id: p.id,
     teamName: p.teamName,
+    nickname: p.nickname,
+    disabled: p.disabled,
     joinedAt: p.joinedAt,
     user: p.user,
   };
 }
 
-/** Create a tournament. The creator is automatically the first participant. */
+async function requireTournament(id: string) {
+  const tournament = await prisma.tournament.findUnique({ where: { id } });
+  if (!tournament) throw new HttpError(404, 'Tournament not found');
+  return tournament;
+}
+
+async function requireAdmin(id: string, userId: string) {
+  const tournament = await requireTournament(id);
+  if (tournament.creatorId !== userId) {
+    throw new HttpError(403, 'Only the tournament admin can do this');
+  }
+  return tournament;
+}
+
+/** Create a tournament. The creator is the admin and the first player. */
 router.post(
   '/',
   requireAuth,
   h(async (req, res) => {
     const body = z
       .object({
-        name: nameSchema,
-        teamName: teamNameSchema,
+        name: tournamentNameSchema,
+        teamName: playerNameSchema,
         description: z.string().trim().max(240).optional(),
-        maxPlayers: z.number().int().min(2).max(32).optional(),
+        maxPlayers: z.number().int().min(2).max(64).optional(),
       })
       .parse(req.body);
 
@@ -72,7 +100,9 @@ router.post(
         name: body.name,
         description: body.description,
         code,
-        maxPlayers: body.maxPlayers ?? 20,
+        maxPlayers: body.maxPlayers ?? 32,
+        status: 'ACTIVE',
+        startedAt: new Date(),
         creatorId: req.user!.id,
         participants: {
           create: { userId: req.user!.id, teamName: body.teamName },
@@ -98,13 +128,13 @@ router.post(
   }),
 );
 
-/** Join a draft tournament using its share code. */
+/** Join a tournament with its share code. */
 router.post(
   '/join',
   requireAuth,
   h(async (req, res) => {
     const { code, teamName } = z
-      .object({ code: z.string().trim().min(4).max(12), teamName: teamNameSchema })
+      .object({ code: z.string().trim().min(4).max(12), teamName: playerNameSchema })
       .parse(req.body);
 
     const tournament = await prisma.tournament.findUnique({
@@ -113,8 +143,8 @@ router.post(
     });
 
     if (!tournament) throw new HttpError(404, 'No tournament found with that code');
-    if (tournament.status !== 'DRAFT') {
-      throw new HttpError(400, 'This tournament has already started');
+    if (tournament.status === 'COMPLETED') {
+      throw new HttpError(400, 'This tournament has already finished');
     }
 
     const alreadyJoined = tournament.participants.some((p) => p.userId === req.user!.id);
@@ -172,12 +202,11 @@ router.get(
   }),
 );
 
-/** Public discovery feed - anyone can browse active tournaments. */
+/** Public discovery feed - anyone can browse tournaments. */
 router.get(
   '/explore',
   h(async (_req, res) => {
     const tournaments = await prisma.tournament.findMany({
-      where: { status: { in: ['ACTIVE', 'COMPLETED'] } },
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: {
@@ -229,68 +258,12 @@ router.get(
   }),
 );
 
-/** Start the league: generate every round-robin fixture. Creator only. */
-router.post(
-  '/:id/start',
-  requireAuth,
-  h(async (req, res) => {
-    const tournament = await prisma.tournament.findUnique({
-      where: { id: req.params.id },
-      include: {
-        participants: { orderBy: { joinedAt: 'asc' } },
-        _count: { select: { matches: true } },
-      },
-    });
-
-    if (!tournament) throw new HttpError(404, 'Tournament not found');
-    if (tournament.creatorId !== req.user!.id) {
-      throw new HttpError(403, 'Only the creator can start this tournament');
-    }
-    if (tournament.status !== 'DRAFT') {
-      throw new HttpError(400, 'This tournament is not in draft');
-    }
-    if (tournament.participants.length < 2) {
-      throw new HttpError(400, 'At least 2 participants are required');
-    }
-    if (tournament._count.matches > 0) {
-      throw new HttpError(400, 'Fixtures have already been generated');
-    }
-
-    const fixtures = roundRobin(tournament.participants.length);
-
-    await prisma.$transaction([
-      prisma.match.createMany({
-        data: fixtures.map((fixture) => ({
-          tournamentId: tournament.id,
-          homeId: tournament.participants[fixture.homeIndex].id,
-          awayId: tournament.participants[fixture.awayIndex].id,
-          matchday: fixture.matchday,
-        })),
-      }),
-      prisma.tournament.update({
-        where: { id: tournament.id },
-        data: { status: 'ACTIVE', startedAt: new Date() },
-      }),
-    ]);
-
-    res.json({ ok: true, matchesCreated: fixtures.length });
-  }),
-);
-
-/** Mark the tournament as finished. Creator only. */
+/** Mark the tournament as finished. Admin only. */
 router.post(
   '/:id/finish',
   requireAuth,
   h(async (req, res) => {
-    const tournament = await prisma.tournament.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, creatorId: true, status: true },
-    });
-
-    if (!tournament) throw new HttpError(404, 'Tournament not found');
-    if (tournament.creatorId !== req.user!.id) {
-      throw new HttpError(403, 'Only the creator can finish this tournament');
-    }
+    const tournament = await requireAdmin(req.params.id, req.user!.id);
     if (tournament.status !== 'ACTIVE') {
       throw new HttpError(400, 'Only an active tournament can be finished');
     }
@@ -304,22 +277,14 @@ router.post(
   }),
 );
 
-/** Rotate the share code. Creator only, draft only. */
+/** Rotate the share code. Admin only, while the tournament is active. */
 router.post(
   '/:id/code',
   requireAuth,
   h(async (req, res) => {
-    const tournament = await prisma.tournament.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, creatorId: true, status: true },
-    });
-
-    if (!tournament) throw new HttpError(404, 'Tournament not found');
-    if (tournament.creatorId !== req.user!.id) {
-      throw new HttpError(403, 'Only the creator can change the code');
-    }
-    if (tournament.status !== 'DRAFT') {
-      throw new HttpError(400, 'The code can only change before the tournament starts');
+    const tournament = await requireAdmin(req.params.id, req.user!.id);
+    if (tournament.status === 'COMPLETED') {
+      throw new HttpError(400, 'The code cannot change after the tournament finishes');
     }
 
     const code = await uniqueCode();
@@ -329,30 +294,243 @@ router.post(
   }),
 );
 
-/** Record or edit a result. Any participant of the tournament can do this. */
+/** Admin adds a player directly (no account needed yet). */
+router.post(
+  '/:id/participants',
+  requireAuth,
+  h(async (req, res) => {
+    const tournament = await requireAdmin(req.params.id, req.user!.id);
+    const body = z
+      .object({
+        name: playerNameSchema,
+        nickname: guestNicknameSchema.optional(),
+      })
+      .parse(req.body);
+
+    const count = await prisma.participant.count({ where: { tournamentId: tournament.id } });
+    if (count >= tournament.maxPlayers) {
+      throw new HttpError(400, 'This tournament is full');
+    }
+
+    const participant = await prisma.participant.create({
+      data: {
+        tournamentId: tournament.id,
+        teamName: body.name,
+        nickname: body.nickname ?? null,
+      },
+      include: participantInclude,
+    });
+
+    res.status(201).json({ participant: serializeParticipant(participant) });
+  }),
+);
+
+/** Admin edits a player's name, nickname or active status. */
+router.patch(
+  '/:id/participants/:participantId',
+  requireAuth,
+  h(async (req, res) => {
+    const tournament = await requireAdmin(req.params.id, req.user!.id);
+    const body = z
+      .object({
+        name: playerNameSchema.optional(),
+        nickname: guestNicknameSchema.nullable().optional(),
+        disabled: z.boolean().optional(),
+      })
+      .parse(req.body);
+
+    const participant = await prisma.participant.findUnique({
+      where: { id: req.params.participantId },
+    });
+    if (!participant || participant.tournamentId !== tournament.id) {
+      throw new HttpError(404, 'Player not found');
+    }
+
+    const updated = await prisma.participant.update({
+      where: { id: participant.id },
+      data: {
+        ...(body.name !== undefined ? { teamName: body.name } : {}),
+        ...(body.nickname !== undefined ? { nickname: body.nickname } : {}),
+        ...(body.disabled !== undefined ? { disabled: body.disabled } : {}),
+      },
+      include: participantInclude,
+    });
+
+    res.json({ participant: serializeParticipant(updated) });
+  }),
+);
+
+/**
+ * Admin links a manually-added player to a real account by nickname.
+ * The participant row (and all its matches/stats) is kept, so the data
+ * instantly becomes that user's.
+ */
+router.post(
+  '/:id/participants/:participantId/link',
+  requireAuth,
+  h(async (req, res) => {
+    const tournament = await requireAdmin(req.params.id, req.user!.id);
+    const { nickname } = z.object({ nickname: guestNicknameSchema }).parse(req.body);
+
+    const participant = await prisma.participant.findUnique({
+      where: { id: req.params.participantId },
+    });
+    if (!participant || participant.tournamentId !== tournament.id) {
+      throw new HttpError(404, 'Player not found');
+    }
+    if (participant.userId) {
+      throw new HttpError(400, 'This player is already linked to an account');
+    }
+
+    const user = await prisma.user.findFirst({
+      where: { nickname: { equals: nickname, mode: 'insensitive' } },
+      select: { id: true, nickname: true, firstName: true },
+    });
+    if (!user) {
+      throw new HttpError(404, `No account found with nickname "${nickname}"`);
+    }
+
+    const alreadyIn = await prisma.participant.findFirst({
+      where: { tournamentId: tournament.id, userId: user.id },
+    });
+    if (alreadyIn) {
+      throw new HttpError(409, 'That account is already a player in this tournament');
+    }
+
+    const updated = await prisma.participant.update({
+      where: { id: participant.id },
+      data: { userId: user.id, nickname: null },
+      include: participantInclude,
+    });
+
+    res.json({ participant: serializeParticipant(updated) });
+  }),
+);
+
+/** Admin deletes a player and every match they played. */
+router.delete(
+  '/:id/participants/:participantId',
+  requireAuth,
+  h(async (req, res) => {
+    const tournament = await requireAdmin(req.params.id, req.user!.id);
+
+    const participant = await prisma.participant.findUnique({
+      where: { id: req.params.participantId },
+    });
+    if (!participant || participant.tournamentId !== tournament.id) {
+      throw new HttpError(404, 'Player not found');
+    }
+    if (participant.userId === tournament.creatorId) {
+      throw new HttpError(400, 'The admin cannot be removed from the tournament');
+    }
+
+    await prisma.$transaction([
+      prisma.match.deleteMany({
+        where: {
+          tournamentId: tournament.id,
+          OR: [{ homeId: participant.id }, { awayId: participant.id }],
+        },
+      }),
+      prisma.participant.delete({ where: { id: participant.id } }),
+    ]);
+
+    res.json({ ok: true });
+  }),
+);
+
+/** Admin adds a match: pick two players and enter the score. */
+router.post(
+  '/:id/matches',
+  requireAuth,
+  h(async (req, res) => {
+    const tournament = await requireAdmin(req.params.id, req.user!.id);
+    if (tournament.status !== 'ACTIVE') {
+      throw new HttpError(400, 'Matches can only be added while the tournament is active');
+    }
+
+    const body = z
+      .object({
+        homeId: z.string().min(1),
+        awayId: z.string().min(1),
+        homeScore: scoreSchema,
+        awayScore: scoreSchema,
+      })
+      .parse(req.body);
+
+    if (body.homeId === body.awayId) {
+      throw new HttpError(400, 'Pick two different players');
+    }
+
+    const players = await prisma.participant.findMany({
+      where: { tournamentId: tournament.id, id: { in: [body.homeId, body.awayId] } },
+      select: { id: true, disabled: true },
+    });
+    if (players.length !== 2) {
+      throw new HttpError(400, 'Both players must be part of this tournament');
+    }
+    if (players.some((p) => p.disabled)) {
+      throw new HttpError(400, 'Disabled players cannot be added to a match');
+    }
+
+    const match = await prisma.match.create({
+      data: {
+        tournamentId: tournament.id,
+        homeId: body.homeId,
+        awayId: body.awayId,
+        homeScore: body.homeScore,
+        awayScore: body.awayScore,
+        status: 'PLAYED',
+        playedAt: new Date(),
+      },
+    });
+
+    res.status(201).json({ match });
+  }),
+);
+
+/** Admin deletes a match. */
+router.delete(
+  '/:id/matches/:matchId',
+  requireAuth,
+  h(async (req, res) => {
+    const tournament = await requireAdmin(req.params.id, req.user!.id);
+
+    const match = await prisma.match.findUnique({ where: { id: req.params.matchId } });
+    if (!match || match.tournamentId !== tournament.id) {
+      throw new HttpError(404, 'Match not found');
+    }
+
+    await prisma.match.delete({ where: { id: match.id } });
+    res.json({ ok: true });
+  }),
+);
+
+/** Update a result. Any active player or the admin can do this. */
 router.post(
   '/:id/matches/:matchId/result',
   requireAuth,
   h(async (req, res) => {
     const { homeScore, awayScore } = z
-      .object({
-        homeScore: z.number().int().min(0).max(99),
-        awayScore: z.number().int().min(0).max(99),
-      })
+      .object({ homeScore: scoreSchema, awayScore: scoreSchema })
       .parse(req.body);
 
     const tournament = await prisma.tournament.findUnique({
       where: { id: req.params.id },
-      include: { participants: { select: { userId: true } } },
+      include: { participants: { select: { userId: true, disabled: true } } },
     });
 
     if (!tournament) throw new HttpError(404, 'Tournament not found');
     if (tournament.status !== 'ACTIVE') {
-      throw new HttpError(400, 'Results can only be recorded while the tournament is active');
+      throw new HttpError(400, 'Results can only be edited while the tournament is active');
     }
 
-    const isParticipant = tournament.participants.some((p) => p.userId === req.user!.id);
-    if (!isParticipant) throw new HttpError(403, 'Only participants can record results');
+    const isAdmin = tournament.creatorId === req.user!.id;
+    const isPlayer = tournament.participants.some(
+      (p) => p.userId === req.user!.id && !p.disabled,
+    );
+    if (!isAdmin && !isPlayer) {
+      throw new HttpError(403, 'Only players of this tournament can edit results');
+    }
 
     const match = await prisma.match.findUnique({ where: { id: req.params.matchId } });
     if (!match || match.tournamentId !== tournament.id) {
@@ -368,53 +546,12 @@ router.post(
   }),
 );
 
-/** Clear a result so it can be re-entered. Any participant can do this. */
-router.delete(
-  '/:id/matches/:matchId/result',
-  requireAuth,
-  h(async (req, res) => {
-    const tournament = await prisma.tournament.findUnique({
-      where: { id: req.params.id },
-      include: { participants: { select: { userId: true } } },
-    });
-
-    if (!tournament) throw new HttpError(404, 'Tournament not found');
-    if (tournament.status !== 'ACTIVE') {
-      throw new HttpError(400, 'Results can only be edited while the tournament is active');
-    }
-
-    const isParticipant = tournament.participants.some((p) => p.userId === req.user!.id);
-    if (!isParticipant) throw new HttpError(403, 'Only participants can edit results');
-
-    const match = await prisma.match.findUnique({ where: { id: req.params.matchId } });
-    if (!match || match.tournamentId !== tournament.id) {
-      throw new HttpError(404, 'Match not found');
-    }
-
-    const updated = await prisma.match.update({
-      where: { id: match.id },
-      data: { homeScore: null, awayScore: null, status: 'SCHEDULED', playedAt: null },
-    });
-
-    res.json({ match: updated });
-  }),
-);
-
-/** Delete a tournament. Creator only. */
+/** Delete a tournament. Admin only. */
 router.delete(
   '/:id',
   requireAuth,
   h(async (req, res) => {
-    const tournament = await prisma.tournament.findUnique({
-      where: { id: req.params.id },
-      select: { id: true, creatorId: true },
-    });
-
-    if (!tournament) throw new HttpError(404, 'Tournament not found');
-    if (tournament.creatorId !== req.user!.id) {
-      throw new HttpError(403, 'Only the creator can delete this tournament');
-    }
-
+    const tournament = await requireAdmin(req.params.id, req.user!.id);
     await prisma.tournament.delete({ where: { id: tournament.id } });
     res.json({ ok: true });
   }),

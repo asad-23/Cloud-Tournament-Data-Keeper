@@ -15,13 +15,15 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ActionSheet, type SheetAction } from '@/components/ActionSheet';
+import { AddMatchSheet } from '@/components/AddMatchSheet';
+import { AddPlayerSheet } from '@/components/AddPlayerSheet';
+import { BottomTabs, type BottomTabItem } from '@/components/BottomTabs';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { FormDots } from '@/components/FormDots';
+import { LinkAccountSheet } from '@/components/LinkAccountSheet';
 import { PlayerSheet } from '@/components/PlayerSheet';
 import { Podium } from '@/components/Podium';
-import { SegmentedTabs } from '@/components/SegmentedTabs';
 import { StandingsTable } from '@/components/StandingsTable';
 import { useToast } from '@/components/Toast';
 import {
@@ -37,22 +39,36 @@ import {
 import { formatDate, statusMeta } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import {
+  useAddMatch,
+  useAddPlayer,
+  useDeleteMatch,
+  useDeletePlayer,
   useDeleteTournament,
   useFinishTournament,
-  useStartTournament,
+  useLinkPlayer,
   useTournament,
+  useUpdatePlayer,
 } from '@/lib/queries';
 import { colors, gradients, radius, spacing } from '@/lib/theme';
 import type { Match, StandingRow } from '@/lib/types';
 
 type TabKey = 'table' | 'matches' | 'players' | 'stats';
 
-const TABS: { key: TabKey; label: string }[] = [
-  { key: 'table', label: 'Table' },
-  { key: 'matches', label: 'Matches' },
-  { key: 'players', label: 'Players' },
-  { key: 'stats', label: 'Stats' },
+const TABS: BottomTabItem<TabKey>[] = [
+  { key: 'table', label: 'Table', icon: 'podium' },
+  { key: 'matches', label: 'Matches', icon: 'football' },
+  { key: 'players', label: 'Players', icon: 'people' },
+  { key: 'stats', label: 'Stats', icon: 'stats-chart' },
 ];
+
+const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+
+type ConfirmState =
+  | { kind: 'finish' }
+  | { kind: 'deleteTournament' }
+  | { kind: 'deleteMatch'; matchId: string; label: string }
+  | { kind: 'deletePlayer'; participantId: string; name: string }
+  | null;
 
 function StatCard({
   icon,
@@ -65,11 +81,24 @@ function StatCard({
   label: string;
   team: string;
   value: string;
-  tone: 'accent' | 'purple' | 'gold';
+  tone: 'accent' | 'purple' | 'gold' | 'danger';
 }) {
-  const color = tone === 'gold' ? colors.gold : tone === 'purple' ? colors.purple : colors.accent;
+  const color =
+    tone === 'gold'
+      ? colors.gold
+      : tone === 'purple'
+        ? colors.purple
+        : tone === 'danger'
+          ? colors.danger
+          : colors.accent;
   const background =
-    tone === 'gold' ? colors.goldSoft : tone === 'purple' ? colors.purpleSoft : colors.accentSoft;
+    tone === 'gold'
+      ? colors.goldSoft
+      : tone === 'purple'
+        ? colors.purpleSoft
+        : tone === 'danger'
+          ? colors.dangerSoft
+          : colors.accentSoft;
 
   return (
     <View style={styles.statCard}>
@@ -92,29 +121,34 @@ export default function TournamentScreen() {
   const { user, loading: authLoading } = useAuth();
 
   const { data, isLoading, isError, refetch, isRefetching, error } = useTournament(id);
-  const start = useStartTournament(id ?? '');
   const finish = useFinishTournament(id ?? '');
-  const remove = useDeleteTournament();
+  const removeTournament = useDeleteTournament();
+  const addMatch = useAddMatch(id ?? '');
+  const deleteMatch = useDeleteMatch(id ?? '');
+  const addPlayer = useAddPlayer(id ?? '');
+  const updatePlayer = useUpdatePlayer(id ?? '');
+  const linkPlayer = useLinkPlayer(id ?? '');
+  const deletePlayer = useDeletePlayer(id ?? '');
 
   const [tab, setTab] = useState<TabKey>('table');
   const [detailedTable, setDetailedTable] = useState(false);
   const [selected, setSelected] = useState<StandingRow | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [confirm, setConfirm] = useState<null | 'start' | 'finish' | 'delete'>(null);
+  const [confirm, setConfirm] = useState<ConfirmState>(null);
   const [confirmVisible, setConfirmVisible] = useState(false);
-
-  const openConfirm = (kind: 'start' | 'finish' | 'delete') => {
-    setConfirm(kind);
-    setConfirmVisible(true);
-  };
+  const [addMatchOpen, setAddMatchOpen] = useState(false);
+  const [addPlayerOpen, setAddPlayerOpen] = useState(false);
+  const [linkTarget, setLinkTarget] = useState<StandingRow | null>(null);
 
   const tournament = data?.tournament;
   const participants = useMemo(() => data?.participants ?? [], [data]);
   const matches = useMemo(() => data?.matches ?? [], [data]);
   const standings = useMemo(() => data?.standings ?? [], [data]);
 
-  const isCreator = Boolean(user && tournament && user.id === tournament.creatorId);
+  const isAdmin = Boolean(user && tournament && user.id === tournament.creatorId);
   const isMember = data?.isMember ?? false;
+  const isActive = tournament?.status === 'ACTIVE';
+  const canEdit = isActive && (isAdmin || isMember);
   const playedCount = matches.filter((match) => match.status === 'PLAYED').length;
   const meta = tournament ? statusMeta(tournament.status) : null;
 
@@ -123,18 +157,19 @@ export default function TournamentScreen() {
     [participants],
   );
 
-  const matchdays = useMemo(() => {
-    const groups = new Map<number, Match[]>();
-    for (const match of matches) {
-      const list = groups.get(match.matchday) ?? [];
-      list.push(match);
-      groups.set(match.matchday, list);
-    }
-    return Array.from(groups.entries()).sort((a, b) => a[0] - b[0]);
-  }, [matches]);
+  const activePlayers = useMemo(
+    () => participants.filter((participant) => !participant.disabled),
+    [participants],
+  );
 
   const stats = useMemo(() => {
     if (standings.length === 0) return null;
+
+    const played = matches.filter(
+      (match) =>
+        match.status === 'PLAYED' && match.homeScore !== null && match.awayScore !== null,
+    );
+
     const bestAttack = [...standings].sort((a, b) => b.goalsFor - a.goalsFor)[0];
     const withGames = standings.filter((row) => row.played > 0);
     const bestDefense = [...(withGames.length > 0 ? withGames : standings)].sort(
@@ -142,8 +177,38 @@ export default function TournamentScreen() {
     )[0];
     const mostWins = [...standings].sort((a, b) => b.won - a.won)[0];
     const totalGoals = standings.reduce((sum, row) => sum + row.goalsFor, 0);
-    return { bestAttack, bestDefense, mostWins, totalGoals };
-  }, [standings]);
+    const averageGoals = played.length > 0 ? totalGoals / played.length : 0;
+
+    let biggestWin: { match: Match; margin: number } | null = null;
+    let cleanSheets = 0;
+
+    for (const match of played) {
+      const homeScore = match.homeScore as number;
+      const awayScore = match.awayScore as number;
+      const margin = Math.abs(homeScore - awayScore);
+
+      if (margin > 0 && (!biggestWin || margin > biggestWin.margin)) {
+        biggestWin = { match, margin };
+      }
+      if (homeScore === 0 || awayScore === 0) cleanSheets += 1;
+    }
+
+    const biggestLabel = biggestWin
+      ? `${teamById.get(biggestWin.match.homeId) ?? 'Home'} ${biggestWin.match.homeScore}-${biggestWin.match.awayScore} ${teamById.get(biggestWin.match.awayId) ?? 'Away'}`
+      : 'No decisive win yet';
+
+    return {
+      bestAttack,
+      bestDefense,
+      mostWins,
+      totalGoals,
+      averageGoals,
+      biggestLabel,
+      biggestMargin: biggestWin?.margin ?? 0,
+      cleanSheets,
+      playedCount: played.length,
+    };
+  }, [standings, matches, teamById]);
 
   const copyCode = async () => {
     if (!tournament?.code) return;
@@ -154,7 +219,7 @@ export default function TournamentScreen() {
 
   const shareInvite = async () => {
     if (!tournament?.code) {
-      toast.show('Join code is only visible to participants', 'info');
+      toast.show('Join code is only visible to players', 'info');
       return;
     }
     await Share.share({
@@ -162,49 +227,36 @@ export default function TournamentScreen() {
     }).catch(() => undefined);
   };
 
+  const openConfirm = (next: ConfirmState) => {
+    setConfirm(next);
+    setConfirmVisible(true);
+  };
+
   const actions: SheetAction[] = [];
-  if (isCreator && tournament?.status === 'DRAFT') {
-    actions.push({
-      label: 'Start tournament',
-      icon: 'play',
-      onPress: () => openConfirm('start'),
-    });
-  }
-  if (isCreator && tournament?.status === 'ACTIVE') {
-    actions.push({
-      label: 'Finish tournament',
-      icon: 'flag',
-      onPress: () => openConfirm('finish'),
-    });
-  }
-  if (isMember && tournament?.code) {
+  if (isAdmin && tournament?.code) {
     actions.push({ label: 'Copy join code', icon: 'copy-outline', onPress: copyCode });
     actions.push({ label: 'Share invite', icon: 'share-social-outline', onPress: shareInvite });
   }
-  if (isCreator) {
+  if (isAdmin && isActive) {
+    actions.push({
+      label: 'Finish tournament',
+      icon: 'flag-outline',
+      onPress: () => openConfirm({ kind: 'finish' }),
+    });
+  }
+  if (isAdmin) {
     actions.push({
       label: 'Delete tournament',
       icon: 'trash-outline',
       destructive: true,
-      onPress: () => openConfirm('delete'),
+      onPress: () => openConfirm({ kind: 'deleteTournament' }),
     });
   }
 
   const handleConfirm = () => {
-    if (confirm === 'start') {
-      start.mutate(undefined, {
-        onSuccess: (result) => {
-          setConfirmVisible(false);
-          toast.show(`Fixtures created · ${result.matchesCreated} matches`, 'success');
-        },
-        onError: (caught) => {
-          setConfirmVisible(false);
-          toast.show(caught instanceof Error ? caught.message : 'Could not start', 'error');
-        },
-      });
-    }
+    if (!confirm) return;
 
-    if (confirm === 'finish') {
+    if (confirm.kind === 'finish') {
       finish.mutate(undefined, {
         onSuccess: () => {
           setConfirmVisible(false);
@@ -215,10 +267,11 @@ export default function TournamentScreen() {
           toast.show(caught instanceof Error ? caught.message : 'Could not finish', 'error');
         },
       });
+      return;
     }
 
-    if (confirm === 'delete') {
-      remove.mutate(id, {
+    if (confirm.kind === 'deleteTournament') {
+      removeTournament.mutate(id, {
         onSuccess: () => {
           setConfirmVisible(false);
           toast.show('Tournament deleted', 'info');
@@ -229,7 +282,58 @@ export default function TournamentScreen() {
           toast.show(caught instanceof Error ? caught.message : 'Could not delete', 'error');
         },
       });
+      return;
     }
+
+    if (confirm.kind === 'deleteMatch') {
+      deleteMatch.mutate(confirm.matchId, {
+        onSuccess: () => {
+          setConfirmVisible(false);
+          toast.show('Match deleted', 'info');
+        },
+        onError: (caught) => {
+          setConfirmVisible(false);
+          toast.show(caught instanceof Error ? caught.message : 'Could not delete match', 'error');
+        },
+      });
+      return;
+    }
+
+    if (confirm.kind === 'deletePlayer') {
+      deletePlayer.mutate(confirm.participantId, {
+        onSuccess: () => {
+          setConfirmVisible(false);
+          setSelected(null);
+          toast.show('Player deleted', 'info');
+        },
+        onError: (caught) => {
+          setConfirmVisible(false);
+          toast.show(caught instanceof Error ? caught.message : 'Could not delete player', 'error');
+        },
+      });
+    }
+  };
+
+  const togglePlayerDisabled = (row: StandingRow) => {
+    updatePlayer.mutate(
+      { participantId: row.participantId, disabled: !row.disabled },
+      {
+        onSuccess: (result) => {
+          setSelected((current) =>
+            current && current.participantId === row.participantId
+              ? { ...current, disabled: result.participant.disabled }
+              : current,
+          );
+          toast.show(
+            result.participant.disabled ? 'Player disabled' : 'Player enabled',
+            'success',
+          );
+        },
+        onError: (caught) => {
+          toast.show(caught instanceof Error ? caught.message : 'Could not update player', 'error');
+        },
+      },
+    );
   };
 
   if (isLoading || authLoading) {
@@ -280,7 +384,7 @@ export default function TournamentScreen() {
           {isMember && tournament.code ? (
             <IconButton icon="share-outline" onPress={shareInvite} />
           ) : null}
-          {actions.length > 0 ? (
+          {isAdmin ? (
             <IconButton icon="ellipsis-horizontal" onPress={() => setMenuOpen(true)} />
           ) : null}
         </View>
@@ -300,256 +404,266 @@ export default function TournamentScreen() {
             />
           }
         >
-          <Animated.View entering={FadeInDown.duration(380)}>
-            <LinearGradient
-              colors={gradients.hero}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.hero}
-            >
-              <View style={styles.heroTop}>
-                {meta ? (
-                  <Pill label={meta.label} color={meta.color} background={meta.background} dot />
-                ) : null}
-                <Text style={styles.heroMeta}>
-                  {participants.length} players · {playedCount}/{matches.length} played
-                </Text>
-              </View>
-
-              {tournament.description ? (
-                <Text style={styles.description}>{tournament.description}</Text>
-              ) : null}
-
-              <Text style={styles.created}>Created {formatDate(tournament.createdAt)}</Text>
-
-              {tournament.status === 'DRAFT' && tournament.code ? (
-                <View style={styles.codeBlock}>
-                  <View>
-                    <Text style={styles.codeLabel}>JOIN CODE</Text>
-                    <Text style={styles.code}>{tournament.code}</Text>
-                  </View>
-                  <View style={styles.codeButtons}>
-                    <IconButton icon="copy-outline" onPress={copyCode} />
-                    <IconButton icon="share-social-outline" onPress={shareInvite} />
-                  </View>
-                </View>
-              ) : null}
-
-              {tournament.status === 'DRAFT' && !tournament.code ? (
-                <Text style={styles.hint}>
-                  The join code is only visible to participants of this tournament.
-                </Text>
-              ) : null}
-
-              {tournament.status === 'ACTIVE' ? (
-                <View style={styles.progressWrap}>
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        {
-                          width: `${
-                            matches.length > 0 ? (playedCount / matches.length) * 100 : 0
-                          }%`,
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.progressLabel}>
-                    {playedCount} of {matches.length} matches played
+          {tab === 'table' ? (
+            <>
+              <LinearGradient
+                colors={gradients.hero}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.hero}
+              >
+                <View style={styles.heroTop}>
+                  {meta ? (
+                    <Pill label={meta.label} color={meta.color} background={meta.background} dot />
+                  ) : null}
+                  <Text style={styles.heroMeta}>
+                    {plural(participants.length, 'player')} · {plural(playedCount, 'match')}
                   </Text>
                 </View>
-              ) : null}
 
-              {tournament.status === 'DRAFT' && isCreator ? (
-                <PrimaryButton
-                  label="Start tournament"
-                  icon="play"
-                  loading={start.isPending}
-                  disabled={participants.length < 2}
-                  onPress={() => openConfirm('start')}
-                  style={{ marginTop: spacing.lg }}
-                />
-              ) : null}
+                {tournament.description ? (
+                  <Text style={styles.description}>{tournament.description}</Text>
+                ) : null}
 
-              {tournament.status === 'DRAFT' && !isCreator ? (
-                <Text style={styles.hint}>
-                  Waiting for the creator to start the league.
-                </Text>
-              ) : null}
+                <Text style={styles.created}>Created {formatDate(tournament.createdAt)}</Text>
 
-              {tournament.status === 'DRAFT' && !isMember ? (
-                <PrimaryButton
-                  label="Join with code"
-                  icon="enter-outline"
-                  onPress={() => router.push('/join')}
-                  style={{ marginTop: spacing.md }}
-                />
-              ) : null}
-
-              {tournament.status === 'DRAFT' && isCreator && participants.length < 2 ? (
-                <Text style={styles.hint}>
-                  Share the code — you need at least 2 players to start.
-                </Text>
-              ) : null}
-            </LinearGradient>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(80).duration(380)}>
-            <SectionTitle
-              title="Leaderboard"
-              subtitle="Top 3 of the table"
-              right={<Pill label="Top 3" color={colors.textDim} />}
-            />
-            {standings.length > 0 ? (
-              <Podium standings={standings} />
-            ) : (
-              <Card>
-                <Text style={styles.hint}>The leaderboard appears when players join.</Text>
-              </Card>
-            )}
-          </Animated.View>
-
-          <View style={{ marginTop: spacing.xl }}>
-            <SegmentedTabs tabs={TABS} value={tab} onChange={setTab} />
-          </View>
-
-          <View style={{ marginTop: spacing.lg }}>
-            {tab === 'table' ? (
-              standings.length > 0 ? (
-                <>
-                  <View style={styles.tableToolbar}>
-                    <Text style={styles.tableHint}>Tap a row for full stats</Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel={
-                        detailedTable ? 'Show compact table' : 'Show all table columns'
-                      }
-                      onPress={() => {
-                        Haptics.selectionAsync().catch(() => undefined);
-                        setDetailedTable((value) => !value);
-                      }}
-                      style={({ pressed }) => [
-                        styles.tableToggle,
-                        pressed && { opacity: 0.7 },
-                      ]}
-                    >
-                      <Ionicons
-                        name={detailedTable ? 'contract-outline' : 'expand-outline'}
-                        size={13}
-                        color={colors.accent}
-                      />
-                      <Text style={styles.tableToggleLabel}>
-                        {detailedTable ? 'Compact' : 'All stats'}
-                      </Text>
-                    </Pressable>
+                {isMember && tournament.code ? (
+                  <View style={styles.codeBlock}>
+                    <View>
+                      <Text style={styles.codeLabel}>JOIN CODE</Text>
+                      <Text style={styles.code}>{tournament.code}</Text>
+                    </View>
+                    <View style={styles.codeButtons}>
+                      <IconButton icon="copy-outline" onPress={copyCode} />
+                      <IconButton icon="share-social-outline" onPress={shareInvite} />
+                    </View>
                   </View>
-                  <StandingsTable
-                    standings={standings}
-                    onSelect={setSelected}
-                    detailed={detailedTable}
-                  />
-                </>
-              ) : (
-                <Card>
-                  <EmptyState
-                    icon="podium-outline"
-                    title="No standings yet"
-                    message="Players and results will appear here once the league starts."
-                  />
-                </Card>
-              )
-            ) : null}
+                ) : (
+                  <Text style={styles.hint}>
+                    The join code is only visible to players. Ask the admin for it.
+                  </Text>
+                )}
 
-            {tab === 'matches' ? (
-              matchdays.length === 0 ? (
+                {!isMember && isActive ? (
+                  <PrimaryButton
+                    label="Join with code"
+                    icon="enter-outline"
+                    onPress={() => router.push('/join')}
+                    style={{ marginTop: spacing.md }}
+                  />
+                ) : null}
+              </LinearGradient>
+
+              <View style={{ marginTop: spacing.xl }}>
+                <SectionTitle
+                  title="Leaderboard"
+                  subtitle="Top 3 of the table"
+                  right={<Pill label="Top 3" color={colors.textDim} />}
+                />
+                {standings.length > 0 ? (
+                  <Podium standings={standings} />
+                ) : (
+                  <Card>
+                    <Text style={styles.hint}>The leaderboard appears when players join.</Text>
+                  </Card>
+                )}
+              </View>
+
+              <View style={{ marginTop: spacing.xl }}>
+                {standings.length > 0 ? (
+                  <>
+                    <View style={styles.tableToolbar}>
+                      <Text style={styles.tableHint}>Tap a row for full stats</Text>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={
+                          detailedTable ? 'Show compact table' : 'Show all table columns'
+                        }
+                        onPress={() => {
+                          Haptics.selectionAsync().catch(() => undefined);
+                          setDetailedTable((value) => !value);
+                        }}
+                        style={({ pressed }) => [styles.tableToggle, pressed && { opacity: 0.7 }]}
+                      >
+                        <Ionicons
+                          name={detailedTable ? 'contract-outline' : 'expand-outline'}
+                          size={13}
+                          color={colors.accent}
+                        />
+                        <Text style={styles.tableToggleLabel}>
+                          {detailedTable ? 'Compact' : 'All stats'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                    <StandingsTable
+                      standings={standings}
+                      onSelect={setSelected}
+                      detailed={detailedTable}
+                    />
+                  </>
+                ) : (
+                  <Card>
+                    <EmptyState
+                      icon="podium-outline"
+                      title="No standings yet"
+                      message="Add players and matches to build the table."
+                    />
+                  </Card>
+                )}
+              </View>
+            </>
+          ) : null}
+
+          {tab === 'matches' ? (
+            <>
+              {isAdmin && isActive ? (
+                <PrimaryButton
+                  label="Add match"
+                  icon="add"
+                  onPress={() => {
+                    addMatch.reset();
+                    setAddMatchOpen(true);
+                  }}
+                  style={{ marginBottom: spacing.lg }}
+                />
+              ) : null}
+
+              {matches.length === 0 ? (
                 <Card>
                   <EmptyState
                     icon="football-outline"
-                    title="No fixtures yet"
-                    message="Fixtures are generated automatically when the creator starts the tournament."
+                    title="No matches yet"
+                    message={
+                      isAdmin
+                        ? 'Add a match: pick two players and enter the score.'
+                        : 'The admin will add matches here.'
+                    }
                   />
                 </Card>
               ) : (
-                matchdays.map(([day, dayMatches]) => (
-                  <View key={day} style={{ marginBottom: spacing.lg }}>
-                    <Text style={styles.matchdayLabel}>Matchday {day}</Text>
-                    {dayMatches.map((match) => {
-                      const homeName = teamById.get(match.homeId) ?? 'Home';
-                      const awayName = teamById.get(match.awayId) ?? 'Away';
-                      const played = match.status === 'PLAYED';
-                      const canEdit = isMember && tournament.status === 'ACTIVE';
+                matches.map((match) => {
+                  const homeName = teamById.get(match.homeId) ?? 'Home';
+                  const awayName = teamById.get(match.awayId) ?? 'Away';
+                  const played = match.status === 'PLAYED';
+                  const homeWon = played && (match.homeScore as number) > (match.awayScore as number);
+                  const awayWon = played && (match.awayScore as number) > (match.homeScore as number);
 
-                      const routeParams = played
-                        ? {
-                            id: match.id,
-                            tournamentId: id,
-                            matchId: match.id,
-                            home: homeName,
-                            away: awayName,
-                            homeScore: String(match.homeScore),
-                            awayScore: String(match.awayScore),
-                            matchday: String(match.matchday),
-                          }
-                        : {
-                            id: match.id,
-                            tournamentId: id,
-                            matchId: match.id,
-                            home: homeName,
-                            away: awayName,
-                            matchday: String(match.matchday),
-                          };
+                  const routeParams = played
+                    ? {
+                        id: match.id,
+                        tournamentId: id,
+                        matchId: match.id,
+                        home: homeName,
+                        away: awayName,
+                        homeScore: String(match.homeScore),
+                        awayScore: String(match.awayScore),
+                      }
+                    : {
+                        id: match.id,
+                        tournamentId: id,
+                        matchId: match.id,
+                        home: homeName,
+                        away: awayName,
+                      };
 
-                      return (
-                        <Pressable
-                          key={match.id}
-                          disabled={!canEdit}
-                          onPress={() =>
-                            router.push({ pathname: '/match/[id]', params: routeParams })
-                          }
-                          style={({ pressed }) => [
-                            styles.matchCard,
-                            pressed && canEdit && { opacity: 0.8, transform: [{ scale: 0.99 }] },
+                  return (
+                    <Pressable
+                      key={match.id}
+                      disabled={!canEdit}
+                      onPress={() => router.push({ pathname: '/match/[id]', params: routeParams })}
+                      style={({ pressed }) => [
+                        styles.matchCard,
+                        pressed && canEdit && { opacity: 0.8 },
+                      ]}
+                    >
+                      <View style={styles.matchMain}>
+                        <Text
+                          style={[
+                            styles.matchTeam,
+                            homeWon && styles.matchWinner,
                           ]}
+                          numberOfLines={2}
                         >
-                          <Text style={styles.matchTeamName} numberOfLines={2}>
-                            {homeName}
-                          </Text>
-                          <View style={styles.matchScore}>
-                            {played ? (
-                              <Text style={styles.matchScoreText}>
-                                {match.homeScore} - {match.awayScore}
-                              </Text>
-                            ) : (
-                              <Text style={styles.matchVs}>VS</Text>
-                            )}
+                          {homeName}
+                        </Text>
+                        <View style={styles.matchScoreBox}>
+                          {played ? (
+                            <Text style={styles.matchScoreText}>
+                              {match.homeScore} - {match.awayScore}
+                            </Text>
+                          ) : (
+                            <Text style={styles.matchVs}>VS</Text>
+                          )}
+                        </View>
+                        <Text
+                          style={[
+                            styles.matchTeam,
+                            { textAlign: 'right' },
+                            awayWon && styles.matchWinner,
+                          ]}
+                          numberOfLines={2}
+                        >
+                          {awayName}
+                        </Text>
+                      </View>
+                      <View style={styles.matchFoot}>
+                        <Text style={styles.matchDate}>
+                          {formatDate(match.playedAt ?? match.createdAt)}
+                        </Text>
+                        <View style={{ flex: 1 }} />
+                        {canEdit ? (
+                          <View style={styles.matchEditHint}>
+                            <Ionicons name="create-outline" size={12} color={colors.textMuted} />
+                            <Text style={styles.matchEditLabel}>Edit score</Text>
                           </View>
-                          <Text
-                            style={[styles.matchTeamName, { textAlign: 'right' }]}
-                            numberOfLines={2}
+                        ) : null}
+                        {isAdmin ? (
+                          <Pressable
+                            accessibilityLabel={`Delete match ${homeName} versus ${awayName}`}
+                            hitSlop={8}
+                            onPress={() =>
+                              openConfirm({
+                                kind: 'deleteMatch',
+                                matchId: match.id,
+                                label: `${homeName} ${match.homeScore ?? 0}-${match.awayScore ?? 0} ${awayName}`,
+                              })
+                            }
+                            style={({ pressed }) => [
+                              styles.matchDelete,
+                              pressed && { opacity: 0.6 },
+                            ]}
                           >
-                            {awayName}
-                          </Text>
-                          {canEdit ? (
-                            <View style={styles.matchEdit}>
-                              <Ionicons name="create-outline" size={13} color={colors.textMuted} />
-                            </View>
-                          ) : null}
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                ))
-              )
-            ) : null}
+                            <Ionicons name="trash-outline" size={15} color={colors.danger} />
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })
+              )}
+            </>
+          ) : null}
 
-            {tab === 'players' ? (
-              standings.length === 0 ? (
+          {tab === 'players' ? (
+            <>
+              {isAdmin ? (
+                <PrimaryButton
+                  label="Add player"
+                  icon="person-add"
+                  onPress={() => {
+                    addPlayer.reset();
+                    setAddPlayerOpen(true);
+                  }}
+                  style={{ marginBottom: spacing.lg }}
+                />
+              ) : null}
+
+              {standings.length === 0 ? (
                 <Card>
                   <EmptyState
                     icon="people-outline"
                     title="No players yet"
-                    message="Share the join code to invite competitors."
+                    message="Share the join code or add players as admin."
                   />
                 </Card>
               ) : (
@@ -565,39 +679,52 @@ export default function TournamentScreen() {
                     <Avatar
                       name={row.teamName}
                       size={42}
-                      tone={row.position === 1 ? 'gold' : 'accent'}
+                      tone={row.position === 1 ? 'gold' : row.disabled ? 'purple' : 'accent'}
                     />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.playerTeam}>{row.teamName}</Text>
-                      <Text style={styles.playerMeta}>
-                        @{row.nickname} · {row.firstName}
+                      <View style={styles.playerNameRow}>
+                        <Text style={styles.playerTeam} numberOfLines={1}>
+                          {row.teamName}
+                        </Text>
+                        {row.disabled ? (
+                          <Text style={styles.playerOff}>OFF</Text>
+                        ) : null}
+                        {row.userId === user?.id ? (
+                          <Text style={styles.playerYou}>YOU</Text>
+                        ) : null}
+                      </View>
+                      <Text style={styles.playerMeta} numberOfLines={1}>
+                        @{row.nickname}
+                        {row.userId ? '' : ' · added by admin'}
                       </Text>
                     </View>
-                    <View style={styles.playerStats}>
-                      <Text style={styles.playerPts}>
-                        {row.points}
-                        <Text style={styles.playerPtsLabel}> pts</Text>
-                      </Text>
-                      <Text style={styles.playerRecord}>
-                        {row.won}W {row.drawn}D {row.lost}L
-                      </Text>
-                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                   </Pressable>
                 ))
-              )
-            ) : null}
+              )}
+            </>
+          ) : null}
 
-            {tab === 'stats' ? (
-              !stats ? (
-                <Card>
-                  <EmptyState
-                    icon="stats-chart-outline"
-                    title="No stats yet"
-                    message="Record some results and the league stats will light up."
-                  />
-                </Card>
-              ) : (
-                <>
+          {tab === 'stats' ? (
+            !stats ? (
+              <Card>
+                <EmptyState
+                  icon="stats-chart-outline"
+                  title="No stats yet"
+                  message="Add players and matches and the league stats will light up."
+                />
+              </Card>
+            ) : (
+              <>
+                <SectionTitle
+                  title="Leaderboard"
+                  subtitle="Top 3 of the table"
+                  right={<Pill label="Top 3" color={colors.textDim} />}
+                />
+                <Podium standings={standings} />
+
+                <View style={{ marginTop: spacing.xl }}>
+                  <SectionTitle title="League stats" subtitle="Numbers from every match" />
                   <View style={styles.statGrid}>
                     <StatCard
                       icon="flame"
@@ -623,40 +750,64 @@ export default function TournamentScreen() {
                     <StatCard
                       icon="football"
                       label="Total goals"
-                      team={`${matches.length} matches`}
+                      team={plural(stats.playedCount, 'match')}
                       value={`${stats.totalGoals}`}
                       tone="accent"
                     />
+                    <StatCard
+                      icon="speedometer"
+                      label="Goals per match"
+                      team={`${stats.playedCount} played`}
+                      value={stats.averageGoals.toFixed(1)}
+                      tone="purple"
+                    />
+                    <StatCard
+                      icon="hand-left"
+                      label="Clean sheets"
+                      team="matches"
+                      value={`${stats.cleanSheets}`}
+                      tone="accent"
+                    />
+                    <StatCard
+                      icon="flash"
+                      label="Biggest win"
+                      team={stats.biggestLabel}
+                      value={stats.biggestMargin > 0 ? `${stats.biggestMargin} GD` : '—'}
+                      tone="danger"
+                    />
+                    <StatCard
+                      icon="people"
+                      label="Players"
+                      team={`${participants.length} registered`}
+                      value={`${standings.length}`}
+                      tone="gold"
+                    />
                   </View>
+                </View>
 
-                  <SectionTitle
-                    title="Form guide"
-                    subtitle="Last 5 results per team"
-                    right={undefined}
-                  />
-                  <Card>
-                    {standings.map((row, index) => (
-                      <View key={row.participantId}>
-                        <View style={styles.formRow}>
-                          <Text style={styles.formPos}>{row.position}</Text>
-                          <Text style={styles.formTeam} numberOfLines={1}>
-                            {row.teamName}
-                          </Text>
-                          <FormDots form={row.form} size={16} emptyLabel="No games" />
-                        </View>
-                        {index < standings.length - 1 ? (
-                          <View style={styles.formDivider} />
-                        ) : null}
+                <SectionTitle title="Form guide" subtitle="Last 5 results per player" />
+                <Card>
+                  {standings.map((row, index) => (
+                    <View key={row.participantId}>
+                      <View style={styles.formRow}>
+                        <Text style={styles.formPos}>{row.position}</Text>
+                        <Text style={styles.formTeam} numberOfLines={1}>
+                          {row.teamName}
+                        </Text>
+                        <FormDots form={row.form} size={16} emptyLabel="No games" />
                       </View>
-                    ))}
-                  </Card>
-                </>
-              )
-            ) : null}
-          </View>
+                      {index < standings.length - 1 ? <View style={styles.formDivider} /> : null}
+                    </View>
+                  ))}
+                </Card>
+              </>
+            )
+          ) : null}
 
           <View style={{ height: spacing.xxl }} />
         </ScrollView>
+
+        <BottomTabs tabs={TABS} value={tab} onChange={setTab} />
       </SafeAreaView>
 
       <ActionSheet
@@ -669,36 +820,127 @@ export default function TournamentScreen() {
       <ConfirmDialog
         visible={confirmVisible}
         title={
-          confirm === 'start'
-            ? 'Start the league?'
-            : confirm === 'finish'
-              ? 'Finish the tournament?'
-              : 'Delete this tournament?'
+          confirm?.kind === 'finish'
+            ? 'Finish the tournament?'
+            : confirm?.kind === 'deleteTournament'
+              ? 'Delete this tournament?'
+              : confirm?.kind === 'deleteMatch'
+                ? 'Delete this match?'
+                : 'Delete this player?'
         }
         message={
-          confirm === 'start'
-            ? `This creates ${(participants.length * (participants.length - 1)) / 2} round-robin fixtures and locks new players out.`
-            : confirm === 'finish'
-              ? 'The final table will be saved. Results can no longer be edited.'
-              : 'This permanently deletes the tournament, its matches and results for everyone.'
+          confirm?.kind === 'finish'
+            ? 'The final table will be saved. Scores can no longer be edited.'
+            : confirm?.kind === 'deleteTournament'
+              ? 'This permanently deletes the tournament, its players and matches for everyone.'
+              : confirm?.kind === 'deleteMatch'
+                ? `${confirm.label} will be removed and the table will update.`
+                : `${confirm?.kind === 'deletePlayer' ? confirm.name : 'This player'} and every match they played will be deleted.`
         }
         confirmLabel={
-          confirm === 'start' ? 'Start' : confirm === 'finish' ? 'Finish' : 'Delete'
+          confirm?.kind === 'finish'
+            ? 'Finish'
+            : confirm?.kind === 'deleteMatch'
+              ? 'Delete match'
+              : confirm?.kind === 'deletePlayer'
+                ? 'Delete player'
+                : 'Delete'
         }
-        destructive={confirm === 'delete'}
-        loading={start.isPending || finish.isPending || remove.isPending}
+        destructive={confirm?.kind !== 'finish'}
+        loading={
+          finish.isPending ||
+          removeTournament.isPending ||
+          deleteMatch.isPending ||
+          deletePlayer.isPending
+        }
         icon={
-          confirm === 'delete'
-            ? 'trash-outline'
-            : confirm === 'finish'
-              ? 'flag-outline'
-              : 'play-outline'
+          confirm?.kind === 'finish'
+            ? 'flag-outline'
+            : confirm?.kind === 'deleteMatch'
+              ? 'trash-outline'
+              : confirm?.kind === 'deletePlayer'
+                ? 'person-remove-outline'
+                : 'trash-outline'
         }
         onConfirm={handleConfirm}
         onCancel={() => setConfirmVisible(false)}
       />
 
-      <PlayerSheet row={selected} onClose={() => setSelected(null)} />
+      <AddMatchSheet
+        key={addMatchOpen ? 'open' : 'closed'}
+        visible={addMatchOpen}
+        players={activePlayers}
+        loading={addMatch.isPending}
+        error={addMatch.error instanceof Error ? addMatch.error.message : null}
+        onClose={() => setAddMatchOpen(false)}
+        onSubmit={(body) =>
+          addMatch.mutate(body, {
+            onSuccess: () => {
+              setAddMatchOpen(false);
+              toast.show('Match added', 'success');
+            },
+          })
+        }
+      />
+
+      <AddPlayerSheet
+        key={addPlayerOpen ? 'open' : 'closed'}
+        visible={addPlayerOpen}
+        loading={addPlayer.isPending}
+        error={addPlayer.error instanceof Error ? addPlayer.error.message : null}
+        onClose={() => setAddPlayerOpen(false)}
+        onSubmit={(body) =>
+          addPlayer.mutate(body, {
+            onSuccess: () => {
+              setAddPlayerOpen(false);
+              toast.show('Player added', 'success');
+            },
+          })
+        }
+      />
+
+      <LinkAccountSheet
+        key={linkTarget?.participantId ?? 'closed'}
+        visible={Boolean(linkTarget)}
+        playerName={linkTarget?.teamName ?? ''}
+        loading={linkPlayer.isPending}
+        error={linkPlayer.error instanceof Error ? linkPlayer.error.message : null}
+        onClose={() => setLinkTarget(null)}
+        onSubmit={(nickname) => {
+          if (!linkTarget) return;
+          linkPlayer.mutate(
+            { participantId: linkTarget.participantId, nickname },
+            {
+              onSuccess: () => {
+                setLinkTarget(null);
+                setSelected(null);
+                toast.show('Account linked', 'success');
+              },
+            },
+          );
+        }}
+      />
+
+      <PlayerSheet
+        row={selected}
+        isAdmin={isAdmin}
+        onClose={() => setSelected(null)}
+        onLink={() => {
+          linkPlayer.reset();
+          setLinkTarget(selected);
+        }}
+        onToggleDisabled={() => {
+          if (selected) togglePlayerDisabled(selected);
+        }}
+        onDelete={() => {
+          if (!selected) return;
+          openConfirm({
+            kind: 'deletePlayer',
+            participantId: selected.participantId,
+            name: selected.teamName,
+          });
+        }}
+      />
     </Screen>
   );
 }
@@ -793,35 +1035,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: spacing.md,
   },
-  progressWrap: {
-    marginTop: spacing.lg,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.accent,
-  },
-  progressLabel: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 6,
-  },
-  matchdayLabel: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
-    marginBottom: spacing.sm,
-    marginLeft: spacing.xs,
-  },
   tableToolbar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -852,8 +1065,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
   matchCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: colors.card,
     borderRadius: radius.md,
     borderWidth: 1,
@@ -861,17 +1072,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     marginBottom: spacing.sm,
-    position: 'relative',
   },
-  matchTeamName: {
+  matchMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  matchTeam: {
     flex: 1,
-    color: colors.text,
+    color: colors.textDim,
     fontSize: 13,
     fontWeight: '700',
   },
-  matchScore: {
+  matchWinner: {
+    color: colors.text,
+  },
+  matchScoreBox: {
     paddingHorizontal: spacing.md,
-    minWidth: 72,
+    minWidth: 76,
     alignItems: 'center',
   },
   matchScoreText: {
@@ -886,10 +1103,36 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1,
   },
-  matchEdit: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
+  matchFoot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  matchDate: {
+    color: colors.textMuted,
+    fontSize: 10,
+  },
+  matchEditHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  matchEditLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  matchDelete: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.dangerSoft,
   },
   playerRow: {
     flexDirection: 'row',
@@ -902,39 +1145,46 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
+  playerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   playerTeam: {
     color: colors.text,
     fontSize: 14,
     fontWeight: '700',
+    flexShrink: 1,
+  },
+  playerOff: {
+    color: colors.warning,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    backgroundColor: 'rgba(255,176,32,0.12)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  playerYou: {
+    color: colors.accent,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    backgroundColor: colors.accentSoft,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
   playerMeta: {
     color: colors.textMuted,
     fontSize: 11,
     marginTop: 2,
   },
-  playerStats: {
-    alignItems: 'flex-end',
-  },
-  playerPts: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  playerPtsLabel: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  playerRecord: {
-    color: colors.textMuted,
-    fontSize: 10,
-    marginTop: 2,
-  },
   statGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.md,
-    marginBottom: spacing.xl,
   },
   statCard: {
     width: '47.8%',

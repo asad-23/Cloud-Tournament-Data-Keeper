@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -28,7 +29,7 @@ export function Screen({
   return (
     <View style={[styles.screen, style]}>
       <LinearGradient colors={gradients.screen} style={StyleSheet.absoluteFill} />
-      {children}
+      <View style={[styles.shell, Platform.OS === 'web' && styles.webShell]}>{children}</View>
     </View>
   );
 }
@@ -343,6 +344,14 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.bg,
+  },
+  shell: {
+    flex: 1,
+    width: '100%',
+  },
+  webShell: {
+    maxWidth: 560,
+    alignSelf: 'center',
   },
   card: {
     backgroundColor: colors.card,

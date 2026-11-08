@@ -25,6 +25,12 @@ const firstNameSchema = z
   .min(1, 'First name is required')
   .max(30, 'First name is too long');
 
+const deviceIdSchema = z
+  .string()
+  .trim()
+  .min(8, 'Device identifier is missing')
+  .max(128, 'Device identifier is invalid');
+
 const publicUser = (user: { id: string; nickname: string; firstName: string }) => ({
   id: user.id,
   nickname: user.nickname,
@@ -34,8 +40,12 @@ const publicUser = (user: { id: string; nickname: string; firstName: string }) =
 router.post(
   '/register',
   h(async (req, res) => {
-    const { nickname, firstName } = z
-      .object({ nickname: nicknameSchema, firstName: firstNameSchema })
+    const { nickname, firstName, deviceId } = z
+      .object({
+        nickname: nicknameSchema,
+        firstName: firstNameSchema,
+        deviceId: deviceIdSchema,
+      })
       .parse(req.body);
 
     const existing = await prisma.user.findFirst({
@@ -47,9 +57,21 @@ router.post(
       throw new HttpError(409, 'That nickname is already taken');
     }
 
+    // One account per device: this device already owns an account.
+    const deviceAccount = await prisma.user.findUnique({
+      where: { deviceId },
+      select: { nickname: true },
+    });
+    if (deviceAccount) {
+      throw new HttpError(
+        409,
+        `This device already has the account @${deviceAccount.nickname}. Sign in with it instead.`,
+      );
+    }
+
     const token = randomBytes(32).toString('hex');
     const user = await prisma.user.create({
-      data: { nickname, firstName, token },
+      data: { nickname, firstName, token, deviceId },
       select: { id: true, nickname: true, firstName: true },
     });
 
@@ -59,13 +81,18 @@ router.post(
 
 /**
  * Lightweight recovery: nickname + first name match re-issues a device token.
- * There are no passwords in this app, so this is intentionally simple.
+ * The account is locked to the device that created it, so nobody can sign in
+ * to somebody else's account from a different phone.
  */
 router.post(
   '/login',
   h(async (req, res) => {
-    const { nickname, firstName } = z
-      .object({ nickname: nicknameSchema, firstName: firstNameSchema })
+    const { nickname, firstName, deviceId } = z
+      .object({
+        nickname: nicknameSchema,
+        firstName: firstNameSchema,
+        deviceId: deviceIdSchema,
+      })
       .parse(req.body);
 
     const user = await prisma.user.findFirst({
@@ -76,8 +103,19 @@ router.post(
       throw new HttpError(401, 'Nickname and first name do not match');
     }
 
+    if (user.deviceId && user.deviceId !== deviceId) {
+      throw new HttpError(
+        403,
+        'This account belongs to another device. Each device can only use one account.',
+      );
+    }
+
     const token = randomBytes(32).toString('hex');
-    await prisma.user.update({ where: { id: user.id }, data: { token } });
+    await prisma.user.update({
+      where: { id: user.id },
+      // Legacy accounts created before device locking are claimed by this device.
+      data: { token, deviceId: user.deviceId ?? deviceId },
+    });
 
     res.json({ token, user: publicUser(user) });
   }),

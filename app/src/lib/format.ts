@@ -18,14 +18,10 @@ export function formatDate(iso: string | null | undefined): string {
 }
 
 export function statusMeta(status: TournamentStatus) {
-  switch (status) {
-    case 'ACTIVE':
-      return { label: 'Live', color: colors.accent, background: colors.accentSoft };
-    case 'COMPLETED':
-      return { label: 'Finished', color: colors.textDim, background: 'rgba(167,180,200,0.12)' };
-    default:
-      return { label: 'Draft', color: colors.warning, background: 'rgba(255,176,32,0.12)' };
+  if (status === 'ACTIVE') {
+    return { label: 'Live', color: colors.accent, background: colors.accentSoft };
   }
+  return { label: 'Finished', color: colors.textDim, background: 'rgba(167,180,200,0.12)' };
 }
 
 export function resultColor(result: 'W' | 'D' | 'L') {

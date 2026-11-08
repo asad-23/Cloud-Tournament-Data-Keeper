@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Avatar, Card, Divider, Pill, PrimaryButton, Screen, SectionTitle } from '@/components/ui';
 import { API_BASE } from '@/lib/api';
@@ -25,7 +24,7 @@ const STEPS = [
   {
     icon: 'football-outline' as const,
     title: 'Play and record',
-    text: 'Start the league, enter scores, and the table updates instantly.',
+    text: 'Add matches, enter scores, and the table updates instantly.',
   },
 ];
 
@@ -49,7 +48,7 @@ export default function ProfileScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Text style={styles.title}>Profile</Text>
 
-          <Animated.View entering={FadeInDown.duration(420)}>
+          <View>
             <LinearGradient
               colors={gradients.hero}
               start={{ x: 0, y: 0 }}
@@ -63,9 +62,9 @@ export default function ProfileScreen() {
               </View>
               <Pill label="Player" color={colors.accent} background={colors.accentSoft} dot />
             </LinearGradient>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(80).duration(420)}>
+          <View>
             <SectionTitle title="How it works" />
             <Card>
               {STEPS.map((step, index) => (
@@ -84,9 +83,9 @@ export default function ProfileScreen() {
                 </View>
               ))}
             </Card>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(160).duration(420)}>
+          <View>
             <SectionTitle title="Account" />
             <Card>
               <View style={styles.infoRow}>
@@ -113,9 +112,9 @@ export default function ProfileScreen() {
                 </>
               ) : null}
             </Card>
-          </Animated.View>
+          </View>
 
-          <Animated.View entering={FadeInDown.delay(220).duration(420)}>
+          <View>
             <PrimaryButton
               label="Sign out"
               icon="log-out-outline"
@@ -124,7 +123,7 @@ export default function ProfileScreen() {
               style={{ marginTop: spacing.xl }}
             />
             <Text style={styles.version}>PES League · v1.0.0</Text>
-          </Animated.View>
+          </View>
 
           <View style={{ height: spacing.xxl }} />
         </ScrollView>

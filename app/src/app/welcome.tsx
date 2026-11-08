@@ -12,10 +12,10 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { Card, Field, Pill, PrimaryButton, Screen } from '@/components/ui';
 import { API_BASE, ApiError, api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { getDeviceId } from '@/lib/device';
 import { colors, gradients, radius, spacing } from '@/lib/theme';
 
 type Mode = 'register' | 'login';
@@ -45,10 +45,11 @@ export default function WelcomeScreen() {
 
     setLoading(true);
     try {
+      const deviceId = await getDeviceId();
       const result =
         mode === 'register'
-          ? await api.register({ nickname: cleanNickname, firstName: firstName.trim() })
-          : await api.login({ nickname: cleanNickname, firstName: firstName.trim() });
+          ? await api.register({ nickname: cleanNickname, firstName: firstName.trim(), deviceId })
+          : await api.login({ nickname: cleanNickname, firstName: firstName.trim(), deviceId });
 
       await signIn(result.token, result.user);
       router.replace('/(tabs)');
@@ -71,7 +72,7 @@ export default function WelcomeScreen() {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Animated.View entering={FadeInDown.duration(500)}>
+            <View>
               <LinearGradient
                 colors={gradients.hero}
                 start={{ x: 0, y: 0 }}
@@ -90,9 +91,9 @@ export default function WelcomeScreen() {
                   stats in sync for everyone.
                 </Text>
               </LinearGradient>
-            </Animated.View>
+            </View>
 
-            <Animated.View entering={FadeInDown.delay(120).duration(500)}>
+            <View>
               <Card style={styles.formCard}>
                 <View style={styles.modeRow}>
                   {(
@@ -161,22 +162,22 @@ export default function WelcomeScreen() {
 
                 <Text style={styles.helper}>
                   {mode === 'register'
-                    ? 'No password needed. Your nickname is unique across the app.'
-                    : 'Enter the same nickname and first name you registered with.'}
+                    ? 'No password needed. One account per device — your nickname is unique.'
+                    : 'Use the nickname and first name you registered on this device.'}
                 </Text>
               </Card>
-            </Animated.View>
+            </View>
 
-            <Animated.View entering={FadeInDown.delay(240).duration(500)}>
+            <View>
               <View style={styles.footer}>
                 <Ionicons name="lock-closed-outline" size={13} color={colors.textMuted} />
                 <Text style={styles.footerText}>
-                  Your session stays on this device. Share the APK with friends — everyone gets
-                  their own nickname.
+                  Your account is tied to this device. One account per device — share the APK with
+                  friends and each phone gets its own.
                 </Text>
               </View>
               {__DEV__ ? <Text style={styles.devText}>API · {API_BASE}</Text> : null}
-            </Animated.View>
+            </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>

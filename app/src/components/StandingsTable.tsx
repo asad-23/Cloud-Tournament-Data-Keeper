@@ -112,9 +112,15 @@ export function StandingsTable({
                 teamWidth ? { flex: 0, width: teamWidth } : null,
               ]}
             >
-              <Text style={styles.teamName} numberOfLines={1}>
-                {row.teamName}
-              </Text>
+              <View style={styles.teamNameRow}>
+                <Text
+                  style={[styles.teamName, row.disabled && styles.teamNameDisabled]}
+                  numberOfLines={1}
+                >
+                  {row.teamName}
+                </Text>
+                {row.disabled ? <Text style={styles.inactiveTag}>OFF</Text> : null}
+              </View>
               <FormDots form={row.form} size={15} />
             </View>
 
@@ -210,6 +216,25 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 14,
     fontWeight: '700',
+    flexShrink: 1,
+  },
+  teamNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  teamNameDisabled: {
+    color: colors.textMuted,
+  },
+  inactiveTag: {
+    color: colors.warning,
+    fontSize: 8,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    backgroundColor: 'rgba(255,176,32,0.12)',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
   cell: {
     color: colors.textDim,

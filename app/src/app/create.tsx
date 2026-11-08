@@ -14,7 +14,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, { FadeInDown, ZoomIn } from 'react-native-reanimated';
 import { useToast } from '@/components/Toast';
 import {
   Card,
@@ -113,18 +112,16 @@ export default function CreateTournamentScreen() {
           >
             {created ? (
               <View style={styles.successWrap}>
-                <Animated.View entering={ZoomIn.springify().damping(14)} style={styles.successIcon}>
+                <View style={styles.successIcon}>
                   <Ionicons name="checkmark" size={34} color="#04120C" />
-                </Animated.View>
+                </View>
 
-                <Animated.Text entering={FadeInDown.delay(80)} style={styles.successTitle}>
-                  {created.name}
-                </Animated.Text>
-                <Animated.Text entering={FadeInDown.delay(120)} style={styles.successText}>
-                  Tournament created. Share this code so your friends can join.
-                </Animated.Text>
+                <Text style={styles.successTitle}>{created.name}</Text>
+                <Text style={styles.successText}>
+                  Your tournament is live. Share the code or add players yourself.
+                </Text>
 
-                <Animated.View entering={FadeInDown.delay(180)} style={{ width: '100%' }}>
+                <View style={{ width: '100%' }}>
                   <LinearGradient
                     colors={gradients.hero}
                     start={{ x: 0, y: 0 }}
@@ -155,11 +152,11 @@ export default function CreateTournamentScreen() {
                     onPress={() => router.replace(`/tournament/${created.id}`)}
                     style={{ marginTop: spacing.xl }}
                   />
-                </Animated.View>
+                </View>
               </View>
             ) : (
               <>
-                <Animated.View entering={FadeInDown.duration(360)}>
+                <View>
                   <LinearGradient colors={gradients.hero} style={styles.intro}>
                     <View style={styles.introIcon}>
                       <Ionicons name="trophy" size={22} color={colors.accent} />
@@ -170,9 +167,9 @@ export default function CreateTournamentScreen() {
                       automatically.
                     </Text>
                   </LinearGradient>
-                </Animated.View>
+                </View>
 
-                <Animated.View entering={FadeInDown.delay(80).duration(360)}>
+                <View>
                   <Card style={{ marginTop: spacing.lg }}>
                     <Field
                       label="Tournament name"
@@ -234,7 +231,7 @@ export default function CreateTournamentScreen() {
                       style={{ marginTop: spacing.xl }}
                     />
                   </Card>
-                </Animated.View>
+                </View>
               </>
             )}
 
