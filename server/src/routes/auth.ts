@@ -110,6 +110,19 @@ router.post(
       );
     }
 
+    // A legacy (unbound) account can be claimed, but only by a device that does
+    // not already own a different account.
+    const deviceAccount = await prisma.user.findUnique({
+      where: { deviceId },
+      select: { id: true },
+    });
+    if (deviceAccount && deviceAccount.id !== user.id) {
+      throw new HttpError(
+        409,
+        'This device already has an account. Each device can only use one account.',
+      );
+    }
+
     const token = randomBytes(32).toString('hex');
     await prisma.user.update({
       where: { id: user.id },
