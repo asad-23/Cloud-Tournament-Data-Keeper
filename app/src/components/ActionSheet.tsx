@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, SlideInDown, SlideOutDown } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, SlideInDown, SlideOutDown } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/lib/theme';
 
 export type SheetAction = {
@@ -37,8 +37,8 @@ export function ActionSheet({
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
         <Animated.View
-          entering={SlideInDown.springify().damping(18)}
-          exiting={SlideOutDown.duration(160)}
+          entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
+          exiting={SlideOutDown.duration(180).easing(Easing.in(Easing.cubic))}
           style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
         >
           <View style={styles.handle} />

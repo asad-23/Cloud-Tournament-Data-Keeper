@@ -151,7 +151,7 @@ export const api = {
     ),
 
   linkPlayer: (tournamentId: string, participantId: string, nickname: string) =>
-    request<{ participant: Participant }>(
+    request<{ participant: Participant; merged?: boolean; mergedFrom?: string | null }>(
       `/tournaments/${tournamentId}/participants/${participantId}/link`,
       { method: 'POST', body: { nickname } },
     ),

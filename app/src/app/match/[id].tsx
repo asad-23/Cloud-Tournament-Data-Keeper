@@ -139,8 +139,8 @@ export default function EditScoreScreen() {
             <View style={styles.noteRow}>
               <Ionicons name="information-circle-outline" size={17} color={colors.textMuted} />
               <Text style={styles.note}>
-                Any player in this tournament can fix the score. Save and the table updates for
-                everyone.
+                Only the two players in this match or the admin can edit the score. Save and the
+                table updates for everyone.
               </Text>
             </View>
 

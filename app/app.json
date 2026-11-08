@@ -1,8 +1,9 @@
 {
   "expo": {
-    "name": "PES League",
+    "name": "PlaDa",
     "slug": "pes-league",
     "version": "1.0.0",
+    "description": "Playful Cloud Data — a PES Mobile tournament tracker.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "pesleague",

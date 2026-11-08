@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { statusMeta } from '@/lib/format';
+import { pluralize, statusMeta } from '@/lib/format';
 import { colors, gradients, radius, spacing } from '@/lib/theme';
 import type { TournamentStatus } from '@/lib/types';
 import { Pill } from './ui';
@@ -47,11 +47,11 @@ export function TournamentCard({
         <View style={styles.metaRow}>
           <View style={styles.meta}>
             <Ionicons name="people-outline" size={14} color={colors.textMuted} />
-            <Text style={styles.metaText}>{participantCount} players</Text>
+            <Text style={styles.metaText}>{pluralize(participantCount, 'player')}</Text>
           </View>
           <View style={styles.meta}>
             <Ionicons name="football-outline" size={14} color={colors.textMuted} />
-            <Text style={styles.metaText}>{matchCount} matches</Text>
+            <Text style={styles.metaText}>{pluralize(matchCount, 'match')}</Text>
           </View>
           <View style={{ flex: 1 }} />
           <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />

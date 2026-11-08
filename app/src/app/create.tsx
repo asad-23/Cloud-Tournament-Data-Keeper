@@ -88,7 +88,7 @@ export default function CreateTournamentScreen() {
   const shareCode = async () => {
     if (!created) return;
     await Share.share({
-      message: `Join my PES League tournament "${created.name}"!\n\nOpen PES League, tap Join, and enter code: ${created.code}`,
+      message: `Join my PlaDa tournament "${created.name}"!\n\nOpen PlaDa, tap Join, and enter code: ${created.code}`,
     }).catch(() => undefined);
   };
 

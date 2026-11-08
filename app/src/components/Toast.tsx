@@ -10,7 +10,7 @@ import {
 } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+import Animated, { Easing, FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/lib/theme';
 
 type ToastType = 'success' | 'error' | 'info';
@@ -51,8 +51,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <View pointerEvents="none" style={[StyleSheet.absoluteFill, { zIndex: 999 }]}>
         {toast ? (
           <Animated.View
-            entering={FadeInUp.springify().damping(16)}
-            exiting={FadeOutUp.duration(150)}
+            entering={FadeInUp.duration(220).easing(Easing.out(Easing.cubic))}
+            exiting={FadeOutUp.duration(150).easing(Easing.in(Easing.cubic))}
             style={[styles.toast, { top: insets.top + spacing.sm }]}
           >
             <Ionicons name={ICONS[toast.type]} size={18} color={TONES[toast.type]} />

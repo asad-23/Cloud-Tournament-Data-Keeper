@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, SlideInDown } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/lib/theme';
 import type { StandingRow } from '@/lib/types';
 import { FormDots } from './FormDots';
@@ -74,7 +74,7 @@ export function PlayerSheet({
 
         {row ? (
           <Animated.View
-            entering={SlideInDown.springify().damping(20)}
+            entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
             style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}
           >
             <View style={styles.handle} />

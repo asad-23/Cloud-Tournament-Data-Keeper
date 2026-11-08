@@ -36,7 +36,7 @@ import {
   Screen,
   SectionTitle,
 } from '@/components/ui';
-import { formatDate, statusMeta } from '@/lib/format';
+import { formatDate, pluralize, statusMeta } from '@/lib/format';
 import { useAuth } from '@/lib/auth';
 import {
   useAddMatch,
@@ -60,8 +60,6 @@ const TABS: BottomTabItem<TabKey>[] = [
   { key: 'players', label: 'Players', icon: 'people' },
   { key: 'stats', label: 'Stats', icon: 'stats-chart' },
 ];
-
-const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
 type ConfirmState =
   | { kind: 'finish' }
@@ -148,7 +146,13 @@ export default function TournamentScreen() {
   const isAdmin = Boolean(user && tournament && user.id === tournament.creatorId);
   const isMember = data?.isMember ?? false;
   const isActive = tournament?.status === 'ACTIVE';
-  const canEdit = isActive && (isAdmin || isMember);
+  const me = useMemo(
+    () => participants.find((participant) => participant.user?.id === user?.id) ?? null,
+    [participants, user?.id],
+  );
+  const canAddMatch = isActive && (isAdmin || Boolean(me && !me.disabled));
+  const canManageMatch = (match: Match) =>
+    isAdmin || Boolean(me && (match.homeId === me.id || match.awayId === me.id));
   const playedCount = matches.filter((match) => match.status === 'PLAYED').length;
   const meta = tournament ? statusMeta(tournament.status) : null;
 
@@ -223,7 +227,7 @@ export default function TournamentScreen() {
       return;
     }
     await Share.share({
-      message: `Join my PES League tournament "${tournament.name}"!\n\nOpen PES League, tap Join, and enter code: ${tournament.code}`,
+      message: `Join my PlaDa tournament "${tournament.name}"!\n\nOpen PlaDa, tap Join, and enter code: ${tournament.code}`,
     }).catch(() => undefined);
   };
 
@@ -417,7 +421,7 @@ export default function TournamentScreen() {
                     <Pill label={meta.label} color={meta.color} background={meta.background} dot />
                   ) : null}
                   <Text style={styles.heroMeta}>
-                    {plural(participants.length, 'player')} · {plural(playedCount, 'match')}
+                    {pluralize(participants.length, 'player')} · {pluralize(playedCount, 'match')}
                   </Text>
                 </View>
 
@@ -516,7 +520,7 @@ export default function TournamentScreen() {
 
           {tab === 'matches' ? (
             <>
-              {isAdmin && isActive ? (
+              {canAddMatch ? (
                 <PrimaryButton
                   label="Add match"
                   icon="add"
@@ -534,9 +538,9 @@ export default function TournamentScreen() {
                     icon="football-outline"
                     title="No matches yet"
                     message={
-                      isAdmin
+                      canAddMatch
                         ? 'Add a match: pick two players and enter the score.'
-                        : 'The admin will add matches here.'
+                        : 'Ask an active player to record the first match.'
                     }
                   />
                 </Card>
@@ -545,6 +549,9 @@ export default function TournamentScreen() {
                   const homeName = teamById.get(match.homeId) ?? 'Home';
                   const awayName = teamById.get(match.awayId) ?? 'Away';
                   const played = match.status === 'PLAYED';
+                  const canManage = canManageMatch(match);
+                  const canEditMatch = isActive && canManage;
+                  const canDeleteMatch = isActive ? canManage : isAdmin;
                   const homeWon = played && (match.homeScore as number) > (match.awayScore as number);
                   const awayWon = played && (match.awayScore as number) > (match.homeScore as number);
 
@@ -569,11 +576,11 @@ export default function TournamentScreen() {
                   return (
                     <Pressable
                       key={match.id}
-                      disabled={!canEdit}
+                      disabled={!canEditMatch}
                       onPress={() => router.push({ pathname: '/match/[id]', params: routeParams })}
                       style={({ pressed }) => [
                         styles.matchCard,
-                        pressed && canEdit && { opacity: 0.8 },
+                        pressed && canEditMatch && { opacity: 0.8 },
                       ]}
                     >
                       <View style={styles.matchMain}>
@@ -611,13 +618,13 @@ export default function TournamentScreen() {
                           {formatDate(match.playedAt ?? match.createdAt)}
                         </Text>
                         <View style={{ flex: 1 }} />
-                        {canEdit ? (
+                        {canEditMatch ? (
                           <View style={styles.matchEditHint}>
                             <Ionicons name="create-outline" size={12} color={colors.textMuted} />
                             <Text style={styles.matchEditLabel}>Edit score</Text>
                           </View>
                         ) : null}
-                        {isAdmin ? (
+                        {canDeleteMatch ? (
                           <Pressable
                             accessibilityLabel={`Delete match ${homeName} versus ${awayName}`}
                             hitSlop={8}
@@ -698,6 +705,22 @@ export default function TournamentScreen() {
                         {row.userId ? '' : ' · added by admin'}
                       </Text>
                     </View>
+                    {isAdmin && !row.userId ? (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={`Link ${row.teamName} to an account`}
+                        hitSlop={8}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          linkPlayer.reset();
+                          setLinkTarget(row);
+                        }}
+                        style={({ pressed }) => [styles.playerLink, pressed && { opacity: 0.65 }]}
+                      >
+                        <Ionicons name="link-outline" size={13} color={colors.accent} />
+                        <Text style={styles.playerLinkLabel}>Link</Text>
+                      </Pressable>
+                    ) : null}
                     <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                   </Pressable>
                 ))
@@ -744,13 +767,13 @@ export default function TournamentScreen() {
                       icon="trophy"
                       label="Most wins"
                       team={stats.mostWins.teamName}
-                      value={`${stats.mostWins.won} wins`}
+                      value={pluralize(stats.mostWins.won, 'win')}
                       tone="gold"
                     />
                     <StatCard
                       icon="football"
                       label="Total goals"
-                      team={plural(stats.playedCount, 'match')}
+                      team={pluralize(stats.playedCount, 'match')}
                       value={`${stats.totalGoals}`}
                       tone="accent"
                     />
@@ -867,7 +890,7 @@ export default function TournamentScreen() {
       />
 
       <AddMatchSheet
-        key={addMatchOpen ? 'open' : 'closed'}
+        key={addMatchOpen ? 'add-match-open' : 'add-match-closed'}
         visible={addMatchOpen}
         players={activePlayers}
         loading={addMatch.isPending}
@@ -884,7 +907,7 @@ export default function TournamentScreen() {
       />
 
       <AddPlayerSheet
-        key={addPlayerOpen ? 'open' : 'closed'}
+        key={addPlayerOpen ? 'add-player-open' : 'add-player-closed'}
         visible={addPlayerOpen}
         loading={addPlayer.isPending}
         error={addPlayer.error instanceof Error ? addPlayer.error.message : null}
@@ -900,7 +923,7 @@ export default function TournamentScreen() {
       />
 
       <LinkAccountSheet
-        key={linkTarget?.participantId ?? 'closed'}
+        key={linkTarget ? `link-${linkTarget.participantId}` : 'link-closed'}
         visible={Boolean(linkTarget)}
         playerName={linkTarget?.teamName ?? ''}
         loading={linkPlayer.isPending}
@@ -911,10 +934,15 @@ export default function TournamentScreen() {
           linkPlayer.mutate(
             { participantId: linkTarget.participantId, nickname },
             {
-              onSuccess: () => {
+              onSuccess: (result) => {
                 setLinkTarget(null);
                 setSelected(null);
-                toast.show('Account linked', 'success');
+                toast.show(
+                  result.merged
+                    ? `Accounts merged${result.mergedFrom ? ` — ${result.mergedFrom} is now ${linkTarget.teamName}` : ''}`
+                    : 'Account linked',
+                  'success',
+                );
               },
             },
           );
@@ -1183,6 +1211,22 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 11,
     marginTop: 2,
+  },
+  playerLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+    borderRadius: radius.pill,
+    backgroundColor: colors.accentSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(44,229,155,0.3)',
+  },
+  playerLinkLabel: {
+    color: colors.accent,
+    fontSize: 10,
+    fontWeight: '800',
   },
   statGrid: {
     flexDirection: 'row',

@@ -122,7 +122,7 @@ export default function ProfileScreen() {
               onPress={() => setConfirmVisible(true)}
               style={{ marginTop: spacing.xl }}
             />
-            <Text style={styles.version}>PES League · v1.0.0</Text>
+            <Text style={styles.version}>PlaDa · Playful Cloud Data · v1.0.0</Text>
           </View>
 
           <View style={{ height: spacing.xxl }} />

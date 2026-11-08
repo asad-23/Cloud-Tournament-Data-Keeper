@@ -11,9 +11,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BrandLogo } from '@/components/BrandLogo';
 import { Avatar, EmptyState, Pill, Screen, SectionTitle } from '@/components/ui';
 import { TournamentCard } from '@/components/TournamentCard';
 import { useAuth } from '@/lib/auth';
+import { pluralize } from '@/lib/format';
 import { useMyTournaments } from '@/lib/queries';
 import { colors, gradients, radius, spacing } from '@/lib/theme';
 
@@ -30,10 +32,11 @@ export default function HomeScreen() {
       <SafeAreaView style={{ flex: 1 }} edges={['top']}>
         <View style={styles.header}>
           <View style={styles.brandRow}>
-            <View style={styles.brandMark}>
-              <Ionicons name="trophy" size={15} color={colors.accent} />
+            <BrandLogo size={30} />
+            <View>
+              <Text style={styles.brand}>PlaDa</Text>
+              <Text style={styles.brandSub}>Playful Cloud Data</Text>
             </View>
-            <Text style={styles.brand}>PES LEAGUE</Text>
           </View>
           <Pressable onPress={() => router.push('/profile')} hitSlop={8}>
             <Avatar name={user?.firstName ?? 'Player'} size={40} />
@@ -124,7 +127,7 @@ export default function HomeScreen() {
               title="Your tournaments"
               subtitle={
                 tournaments.length > 0
-                  ? `${tournaments.length} tournament${tournaments.length === 1 ? '' : 's'}`
+                  ? pluralize(tournaments.length, 'tournament')
                   : 'Nothing here yet'
               }
               right={
@@ -198,21 +201,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  brandMark: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    backgroundColor: colors.accentSoft,
-    borderWidth: 1,
-    borderColor: 'rgba(44,229,155,0.3)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   brand: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '900',
-    letterSpacing: 2,
+    letterSpacing: 0.2,
+  },
+  brandSub: {
+    color: colors.textMuted,
+    fontSize: 8,
+    fontWeight: '700',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
+    marginTop: 1,
   },
   content: {
     paddingHorizontal: spacing.xl,

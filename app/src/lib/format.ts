@@ -17,6 +17,13 @@ export function formatDate(iso: string | null | undefined): string {
   });
 }
 
+/** "1 match" / "0 matches" / "2 players" */
+export function pluralize(count: number, word: string): string {
+  if (count === 1) return `${count} ${word}`;
+  if (/(ch|sh|x|s)$/i.test(word)) return `${count} ${word}es`;
+  return `${count} ${word}s`;
+}
+
 export function statusMeta(status: TournamentStatus) {
   if (status === 'ACTIVE') {
     return { label: 'Live', color: colors.accent, background: colors.accentSoft };

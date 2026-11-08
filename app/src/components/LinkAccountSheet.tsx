@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { Easing, FadeIn, SlideInDown } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/lib/theme';
 import { Field, PrimaryButton } from './ui';
 
@@ -62,7 +62,7 @@ export function LinkAccountSheet({
         </Animated.View>
 
         <Animated.View
-          entering={SlideInDown.springify().damping(18)}
+          entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
           style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
         >
           <View style={styles.handle} />

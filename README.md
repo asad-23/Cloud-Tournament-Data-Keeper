@@ -1,4 +1,4 @@
-# PES League — Tournament Manager
+# PlaDa — Playful Cloud Data
 
 A global football tournament tracker for PES Mobile. Create a league, share a
 6-character join code, add matches as they are played, and let anyone with the
@@ -78,15 +78,15 @@ your laptop's LAN IP on port 4000, so phone and laptop must be on the same Wi-Fi
    6-character join code is generated immediately.
 3. **Share the code** — friends tap *Join* and enter it plus their team name.
    The code works until the admin finishes the tournament.
-4. **Add matches manually** — there are no fixtures. The admin picks two active
-   players and enters the final score; the match appears in the Matches tab and
-   the table recalculates instantly.
-5. **Fix scores** — any active player or the admin can edit a score. The admin
-   can also delete any match.
+4. **Add matches manually** — there are no fixtures. Any active player (or the
+   admin) picks two active players and enters the final score; the match appears
+   in the Matches tab and the table recalculates instantly.
+5. **Fix scores** — only the two players in that match or the admin can edit or
+   delete it. The table updates for everyone.
 6. **Manage players** — the admin can add a player by name + nickname (no app
    needed yet), link that placeholder to a real account later without losing
-   matches or stats, disable/enable a player, or delete a player and their
-   matches.
+   matches or stats (duplicate entries are merged automatically), disable/enable
+   a player, or delete a player and their matches.
 7. **Anyone** can open a tournament from the global *Explore* feed and view the
    table, matches, players and stats.
 
@@ -97,8 +97,8 @@ The tournament screen has four bottom tabs:
 | Tab | Contents |
 | --- | -------- |
 | **Table** | Join code, top-3 leaderboard, full standings with a compact/all-stats toggle |
-| **Matches** | Match list with score edit and admin delete; admin *Add match* |
-| **Players** | Player names only; tap one for info + stats; admin *Add player* |
+| **Matches** | Match list with score edit/delete for the two players or admin; *Add match* for active players |
+| **Players** | Player names only; tap one for info + stats; admin *Add player* and quick *Link* |
 | **Stats** | Leaderboard, league-wide stats, biggest win, clean sheets and form guide |
 
 ### Identity note
@@ -126,11 +126,11 @@ This is simple, not bank-grade security — perfect for friend leagues.
 | POST | `/api/tournaments/:id/code` | admin | rotate code |
 | POST | `/api/tournaments/:id/participants` | admin | add a player |
 | PATCH | `/api/tournaments/:id/participants/:participantId` | admin | rename, disable/enable |
-| POST | `/api/tournaments/:id/participants/:participantId/link` | admin | link placeholder to an account |
+| POST | `/api/tournaments/:id/participants/:participantId/link` | admin | link/merge placeholder with an account |
 | DELETE | `/api/tournaments/:id/participants/:participantId` | admin | delete player + their matches |
-| POST | `/api/tournaments/:id/matches` | admin | add a played match with a score |
-| DELETE | `/api/tournaments/:id/matches/:matchId` | admin | delete a match |
-| POST | `/api/tournaments/:id/matches/:matchId/result` | player/admin | edit a score |
+| POST | `/api/tournaments/:id/matches` | player/admin | add a played match with a score |
+| DELETE | `/api/tournaments/:id/matches/:matchId` | match player/admin | delete a match |
+| POST | `/api/tournaments/:id/matches/:matchId/result` | match player/admin | edit a score |
 | DELETE | `/api/tournaments/:id` | admin | delete the tournament |
 
 Standings rules: 3 points for a win, 1 for a draw. Tie-break by goal difference,

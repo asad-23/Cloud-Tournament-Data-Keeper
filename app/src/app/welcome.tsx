@@ -12,6 +12,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { BrandLogo } from '@/components/BrandLogo';
 import { Card, Field, Pill, PrimaryButton, Screen } from '@/components/ui';
 import { API_BASE, ApiError, api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -80,14 +81,18 @@ export default function WelcomeScreen() {
                 style={styles.hero}
               >
                 <View style={styles.logoRow}>
-                  <View style={styles.logo}>
-                    <Ionicons name="trophy" size={26} color={colors.accent} />
+                  <View style={styles.brandLockup}>
+                    <BrandLogo size={46} />
+                    <View>
+                      <Text style={styles.brandName}>PlaDa</Text>
+                      <Text style={styles.brandTag}>Playful Cloud Data</Text>
+                    </View>
                   </View>
                   <Pill label="Global · Live" color={colors.accent} background={colors.accentSoft} dot />
                 </View>
                 <Text style={styles.title}>Run your league.{'\n'}Track every match.</Text>
                 <Text style={styles.subtitle}>
-                  Create a PES tournament, share the code, and keep the table, results and
+                  Create a PlaDa tournament, share the code, and keep the table, results and
                   stats in sync for everyone.
                 </Text>
               </LinearGradient>
@@ -203,16 +208,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  logo: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
-    backgroundColor: 'rgba(44,229,155,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(44,229,155,0.3)',
+  brandLockup: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.sm,
+    flexShrink: 1,
+  },
+  brandName: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: 0.2,
+  },
+  brandTag: {
+    color: colors.textMuted,
+    fontSize: 8,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    marginTop: 1,
   },
   title: {
     color: colors.text,
