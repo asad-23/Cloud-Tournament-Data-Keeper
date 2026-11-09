@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 export const PORT = Number(process.env.PORT ?? 4000);
 
 if (!process.env.DATABASE_URL) {

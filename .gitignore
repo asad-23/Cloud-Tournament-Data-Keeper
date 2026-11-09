@@ -10,3 +10,4 @@ app/.expo/
 app/android/
 app/ios/
 *.tsbuildinfo
+.neon

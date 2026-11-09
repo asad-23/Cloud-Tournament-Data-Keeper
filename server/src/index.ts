@@ -1,9 +1,9 @@
-import 'dotenv/config';
+import './loadEnv';
 import express from 'express';
 import cors from 'cors';
 import { ZodError } from 'zod';
 import { PORT } from './env';
-import { prisma } from './prisma';
+import { pool, prisma } from './prisma';
 import { HttpError } from './lib/http';
 import authRoutes from './routes/auth';
 import tournamentRoutes from './routes/tournaments';
@@ -59,6 +59,7 @@ if (!process.env.VERCEL) {
   async function shutdown() {
     server.close();
     await prisma.$disconnect();
+    await pool.end();
     process.exit(0);
   }
 

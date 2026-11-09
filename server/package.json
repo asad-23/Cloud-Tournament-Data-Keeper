@@ -7,12 +7,14 @@
     "build": "prisma generate && tsc -p tsconfig.json",
     "start": "node dist/index.js",
     "db:push": "prisma db push",
+    "db:push:neon": "node scripts/push-neon.mjs",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^6.19.3",
     "@prisma/client": "^6.19.0",
+    "@vercel/functions": "^3.11.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",

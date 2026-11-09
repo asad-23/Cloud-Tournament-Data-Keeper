@@ -139,14 +139,61 @@ This is simple, not bank-grade security — perfect for friend leagues.
 Standings rules: 3 points for a win, 1 for a draw. Tie-break by goal difference,
 then goals scored, then player name. Form = last 5 results.
 
+## Use Neon (hosted Postgres)
+
+This repo is linked to the Neon project `PlaDa`
+(`withered-forest-64871970`, branch `production`). `neon.ts` declares the
+services and branch policy, and `.neon` stores the local link (both are safe to
+commit; `.neon` is gitignored because it is machine-local).
+
+```bash
+npm i -g neon@latest
+neon login                  # opens a browser once
+
+# First time only: link the project and create neon.ts
+neon init -y \
+  --org-id org-gentle-paper-64052835 \
+  --project-id withered-forest-64871970 \
+  --branch production \
+  --services postgres
+
+# Provision services and pull their variables into .env.local
+neon deploy
+
+# Create/update the tables using the direct (unpooled) connection
+npm run db:push:neon
+```
+
+`neon deploy` writes these keys to the project-root `.env.local` (gitignored):
+
+| Variable | Used for |
+| -------- | -------- |
+| `DATABASE_URL` | pooled connection — API traffic |
+| `DATABASE_URL_UNPOOLED` | direct connection — schema changes |
+| `NEON_BRANCH`, `NEON_BRANCH_ID`, `NEON_FUNCTION_HOST_SUFFIX` | Neon metadata |
+
+The server loads env files in this order, so the Neon values win over local
+defaults: root `.env.local` → root `.env` → `server/.env`
+(`server/src/loadEnv.ts`). Prisma uses the Rust-free driver adapter
+(`@prisma/adapter-pg` + `pg`), and on Vercel `attachDatabasePool` releases idle
+connections.
+
+> **IPv6 note:** on some networks Neon hostnames advertise IPv6 addresses that
+> silently time out. `server/src/prisma.ts` prefers IPv4 and disables Node's
+> Happy Eyeballs (`dns.setDefaultResultOrder('ipv4first')`,
+> `net.setDefaultAutoSelectFamily(false)`). Remove those two lines only if your
+> network has working IPv6.
+
 ## Deploy the API to Vercel
 
 The APK cannot reach `localhost` or your laptop's LAN IP, so deploy the API first.
 
 ### 1. Create a PostgreSQL database
 
-Use a free hosted Postgres such as [Neon](https://neon.tech) or
-[Supabase](https://supabase.com). You need two connection strings:
+If you used the Neon CLI above, the URLs are already in `.env.local` — skip to
+step 2. Otherwise use a free hosted Postgres such as
+[Neon](https://neon.tech) or [Supabase](https://supabase.com). You need two
+connection strings:
 
 - **Pooled** URL (Neon: the host contains `-pooler`) — used by the API on Vercel.
 - **Direct** URL — used once to create the tables.
