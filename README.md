@@ -236,9 +236,29 @@ git push -u origin master
    - `DATABASE_URL` = your **pooled** Postgres URL
 6. Click **Deploy**.
 
-`postinstall` runs `prisma generate`, so the client is rebuilt on every deploy.
-The server uses Prisma's Rust-free driver adapter, so there are no engine
-binaries to bundle.
+`postinstall` and `build` both run `prisma generate`, so the client is rebuilt
+on every deploy. Prisma, `@prisma/client`, and `@prisma/adapter-pg` are pinned to
+the same `6.19.3` version.
+
+The client uses Prisma's query-compiler mode (`engineType = "client"`), which
+loads `node_modules/.prisma/client/query_compiler_bg.wasm` at runtime. Vercel's
+file tracer does not detect that dynamic `require`, so `server/vercel.json`
+must force it into the function bundle:
+
+```json
+{
+  "functions": {
+    "src/index.ts": {
+      "includeFiles": "node_modules/.prisma/client/**"
+    }
+  }
+}
+```
+
+The `functions` key must be the exact Express entrypoint (`src/index.ts`). A
+glob like `src/**/*.ts` is accepted by the config schema but does not merge
+`includeFiles` into the function, which is what caused the
+`ENOENT ... query_compiler_bg.wasm` error.
 
 ### 5. Verify
 

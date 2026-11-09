@@ -11,3 +11,5 @@ app/android/
 app/ios/
 *.tsbuildinfo
 .neon
+
+.vercel
