@@ -96,14 +96,12 @@ export function AddMatchSheet({
   error,
   onClose,
   onSubmit,
-  bottomOffset = 0,
 }: {
   visible: boolean;
   players: Participant[];
   loading?: boolean;
   error?: string | null;
   onClose: () => void;
-  bottomOffset?: number;
   onSubmit: (body: {
     homeId: string;
     awayId: string;
@@ -148,13 +146,7 @@ export function AddMatchSheet({
 
         <Animated.View
           entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
-          style={[
-            styles.sheet,
-            {
-              paddingBottom: Math.max(insets.bottom, spacing.lg),
-              marginBottom: Math.max(bottomOffset, 0),
-            },
-          ]}
+          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
         >
           <View style={styles.handle} />
           <View style={styles.titleRow}>

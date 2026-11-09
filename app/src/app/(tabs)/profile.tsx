@@ -3,7 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { EditProfileSheet } from '@/components/EditProfileSheet';
 import { useToast } from '@/components/Toast';
@@ -35,7 +35,6 @@ export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const router = useRouter();
   const toast = useToast();
-  const insets = useSafeAreaInsets();
   const updateProfile = useUpdateProfile();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
@@ -164,7 +163,6 @@ export default function ProfileScreen() {
         nickname={user?.nickname ?? ''}
         loading={updateProfile.isPending}
         error={updateProfile.error instanceof Error ? updateProfile.error.message : null}
-        bottomOffset={49 + insets.bottom}
         onClose={closeEdit}
         onSubmit={(body) =>
           updateProfile.mutate(body, {

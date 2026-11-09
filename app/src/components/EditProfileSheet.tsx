@@ -12,7 +12,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { Easing, FadeIn, SlideInDown } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/lib/theme';
-import { useKeyboardVisible } from '@/lib/useKeyboardVisible';
 import { Field, PrimaryButton } from './ui';
 
 export function EditProfileSheet({
@@ -23,7 +22,6 @@ export function EditProfileSheet({
   error,
   onClose,
   onSubmit,
-  bottomOffset = 0,
 }: {
   visible: boolean;
   firstName: string;
@@ -32,11 +30,8 @@ export function EditProfileSheet({
   error?: string | null;
   onClose: () => void;
   onSubmit: (body: { firstName: string; nickname: string }) => void;
-  bottomOffset?: number;
 }) {
   const insets = useSafeAreaInsets();
-  const keyboardVisible = useKeyboardVisible();
-  const offset = keyboardVisible ? 0 : Math.max(bottomOffset, 0);
 
   const [name, setName] = useState(firstName);
   const [handle, setHandle] = useState(nickname);
@@ -76,10 +71,7 @@ export function EditProfileSheet({
 
         <Animated.View
           entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
-          style={[
-            styles.sheet,
-            { paddingBottom: Math.max(insets.bottom, spacing.lg), marginBottom: offset },
-          ]}
+          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
         >
           <View style={styles.handle} />
           <View style={styles.titleRow}>
