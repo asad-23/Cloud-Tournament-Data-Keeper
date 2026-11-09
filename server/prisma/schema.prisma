@@ -1,5 +1,8 @@
 generator client {
-  provider = "prisma-client-js"
+  provider   = "prisma-client-js"
+  // No Rust query engine: works on Vercel and other serverless hosts without
+  // shipping platform-specific engine binaries.
+  engineType = "client"
 }
 
 datasource db {

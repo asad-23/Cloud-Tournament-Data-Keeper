@@ -20,8 +20,9 @@ Dark UI, animated popups only, custom dialogs, and a public global feed.
 .
 ├── app/            Expo React Native app
 │   └── src/app/    file-based routes (Expo Router)
-├── server/         Express API + Prisma schema
+├── server/         Express API + Prisma schema (deploys to Vercel)
 ├── scripts/        helper scripts
+├── .github/        GitHub Actions (builds the APK)
 └── docker-compose.yml
 ```
 
@@ -138,97 +139,124 @@ This is simple, not bank-grade security — perfect for friend leagues.
 Standings rules: 3 points for a win, 1 for a draw. Tie-break by goal difference,
 then goals scored, then player name. Form = last 5 results.
 
-## Make the API global (public URL)
+## Deploy the API to Vercel
 
 The APK cannot reach `localhost` or your laptop's LAN IP, so deploy the API first.
 
 ### 1. Create a PostgreSQL database
 
 Use a free hosted Postgres such as [Neon](https://neon.tech) or
-[Supabase](https://supabase.com). Copy the connection string, for example:
+[Supabase](https://supabase.com). You need two connection strings:
+
+- **Pooled** URL (Neon: the host contains `-pooler`) — used by the API on Vercel.
+- **Direct** URL — used once to create the tables.
+
+They look like this:
 
 ```text
-postgresql://user:password@host/dbname?sslmode=require
+postgresql://user:password@host-pooler.region.aws.neon.tech/db?sslmode=require
+postgresql://user:password@host.region.aws.neon.tech/db?sslmode=require
 ```
 
-### 2. Deploy the server
+### 2. Create the tables
 
-The simplest option is [Render](https://render.com). Railway and Fly.io work the
-same way.
-
-1. Push this repository to GitHub.
-2. Render → **New → Web Service** → connect the repository.
-3. Set **Root Directory** to `server`.
-4. Render detects the `Dockerfile`. If it asks for commands instead, use:
-   - Build: `npm install && npm run build`
-   - Start: `node dist/index.js`
-5. Add an environment variable `DATABASE_URL` = your hosted Postgres URL.
-   Do **not** set `PORT` — Render provides it automatically and the server
-   reads it.
-6. Deploy and open `https://<your-service>.onrender.com/api/health`. It should
-   return `{"ok":true}`.
-
-### 3. Create the database tables
-
-Run this once from your machine against the hosted database:
+Run this once from your machine, using the **direct** URL:
 
 ```bash
 cd server
-DATABASE_URL="postgresql://...your hosted url..." npx prisma db push
+DATABASE_URL="postgresql://...direct url..." npx prisma db push
 ```
 
-You can also run `npx prisma db push` from the host's shell.
+### 3. Push the project to GitHub
 
-### 4. Point the app at the public API
+```bash
+git remote add origin https://github.com/<your-user>/<your-repo>.git
+git push -u origin master
+```
 
-Set this before building the APK:
+(If `origin` already exists, just run `git push -u origin master`.)
+
+### 4. Import the project on Vercel
+
+1. Go to [vercel.com/new](https://vercel.com/new) and import the GitHub repo.
+2. **Root Directory:** `server`
+3. **Framework Preset:** Express (Vercel detects it automatically).
+4. Leave the build settings on their defaults. If Vercel asks:
+   - Install Command: `npm install`
+   - Build Command: `npm run build`
+   - Output Directory: leave empty
+5. Add an environment variable:
+   - `DATABASE_URL` = your **pooled** Postgres URL
+6. Click **Deploy**.
+
+`postinstall` runs `prisma generate`, so the client is rebuilt on every deploy.
+The server uses Prisma's Rust-free driver adapter, so there are no engine
+binaries to bundle.
+
+### 5. Verify
+
+Open:
 
 ```text
-EXPO_PUBLIC_API_URL=https://<your-service>.onrender.com/api
+https://<your-project>.vercel.app/api/health
 ```
 
-The value must include `/api` and must not end with a slash.
+It should return `{"ok":true}`. Then check the global feed:
 
-## Build an APK and share it
+```text
+https://<your-project>.vercel.app/api/tournaments/explore
+```
 
-EAS cloud builds need no Android Studio:
+> Render/Railway/Fly.io still work too: deploy the `server/` folder with the
+> included `Dockerfile`, set `DATABASE_URL`, and run `node dist/index.js`.
+
+## Build the APK with GitHub Actions
+
+The workflow in `.github/workflows/android-apk.yml` builds an installable APK on
+GitHub's runners — no Android Studio, no Expo account, and no build minutes on
+your machine.
+
+### 1. Add the API URL as a repository variable
+
+GitHub → your repo → **Settings → Secrets and variables → Actions → Variables
+tab → New repository variable**
+
+- Name: `EXPO_PUBLIC_API_URL`
+- Value: `https://<your-project>.vercel.app/api`
+
+It must include `/api` and must not end with a slash. The workflow fails with a
+clear error if this variable is missing.
+
+### 2. Run the build
+
+Push a change inside `app/`, or open **Actions → Build Android APK → Run
+workflow**. The first build takes roughly 10–15 minutes.
+
+### 3. Download and share the APK
+
+Open the finished workflow run and download the **plada-apk** artifact, then
+unzip it. The APK is `app-release.apk`.
+
+Send that file to anyone (WhatsApp, Drive, Telegram, …). On the recipient's
+phone they must allow **Install unknown apps** for the app they downloaded it
+with. The APK talks to the public Vercel API, so it works on any network.
+
+The APK is signed with the debug key, which is fine for sharing with friends.
+For the Play Store, build an AAB with EAS (`--profile production`) or configure a
+release keystore.
+
+### EAS alternative
 
 ```bash
 cd app
 npx eas-cli@latest login
-npx eas-cli@latest init          # first time only: creates the EAS project
-```
-
-Set the API URL for the build. Either add it to the `preview` profile in
-`eas.json`:
-
-```json
-"preview": {
-  "distribution": "internal",
-  "android": { "buildType": "apk" },
-  "env": {
-    "EXPO_PUBLIC_API_URL": "https://<your-service>.onrender.com/api"
-  }
-}
-```
-
-Or set `EXPO_PUBLIC_API_URL` in the EAS dashboard under
-**Project → Environment Variables** for the `preview` environment.
-
-Then build:
-
-```bash
+npx eas-cli@latest init          # first time only
 npx eas-cli@latest build -p android --profile preview
 ```
 
-`eas.json` is already configured to output an **APK** for the `preview` profile.
-EAS prints an installable URL when it finishes. Share that URL, or download the
-`.apk` and send it directly. On Android, the recipient must allow **Install
-unknown apps** for their browser or file manager. The APK talks to the public
-API, so it works on any network.
-
-For a Play Store release, use `--profile production`; that profile builds an
-AAB instead of an APK.
+`eas.json` already outputs an APK for the `preview` profile. Set
+`EXPO_PUBLIC_API_URL` in the `preview` profile or in the EAS dashboard under
+**Project → Environment Variables**.
 
 ## Useful commands
 

@@ -47,15 +47,21 @@ app.use((err: unknown, _req: express.Request, res: express.Response, _next: expr
   res.status(500).json({ error: 'Something went wrong on the server' });
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`API listening on http://0.0.0.0:${PORT}`);
-});
+export default app;
 
-async function shutdown() {
-  server.close();
-  await prisma.$disconnect();
-  process.exit(0);
+// Vercel imports the app as a serverless function, so only listen when running
+// as a normal long-lived server (local dev, Docker, Render, Railway, ...).
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`API listening on http://0.0.0.0:${PORT}`);
+  });
+
+  async function shutdown() {
+    server.close();
+    await prisma.$disconnect();
+    process.exit(0);
+  }
+
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
 }
-
-process.on('SIGINT', shutdown);
-process.on('SIGTERM', shutdown);
