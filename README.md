@@ -118,6 +118,7 @@ This is simple, not bank-grade security — perfect for friend leagues.
 | POST | `/api/auth/register` | – | create profile (nickname, first name, deviceId) |
 | POST | `/api/auth/login` | – | recover on the same device |
 | GET | `/api/auth/me` | ✅ | current user |
+| PATCH | `/api/auth/me` | ✅ | update first name / nickname |
 | GET | `/api/tournaments` | ✅ | my tournaments |
 | GET | `/api/tournaments/explore` | – | global public feed |
 | GET | `/api/tournaments/:id` | optional | detail + standings + matches |
@@ -137,28 +138,97 @@ This is simple, not bank-grade security — perfect for friend leagues.
 Standings rules: 3 points for a win, 1 for a draw. Tie-break by goal difference,
 then goals scored, then player name. Form = last 5 results.
 
-## Build an APK
+## Make the API global (public URL)
 
-The easiest route is EAS cloud builds (no Android Studio needed):
+The APK cannot reach `localhost` or your laptop's LAN IP, so deploy the API first.
+
+### 1. Create a PostgreSQL database
+
+Use a free hosted Postgres such as [Neon](https://neon.tech) or
+[Supabase](https://supabase.com). Copy the connection string, for example:
+
+```text
+postgresql://user:password@host/dbname?sslmode=require
+```
+
+### 2. Deploy the server
+
+The simplest option is [Render](https://render.com). Railway and Fly.io work the
+same way.
+
+1. Push this repository to GitHub.
+2. Render → **New → Web Service** → connect the repository.
+3. Set **Root Directory** to `server`.
+4. Render detects the `Dockerfile`. If it asks for commands instead, use:
+   - Build: `npm install && npm run build`
+   - Start: `node dist/index.js`
+5. Add an environment variable `DATABASE_URL` = your hosted Postgres URL.
+   Do **not** set `PORT` — Render provides it automatically and the server
+   reads it.
+6. Deploy and open `https://<your-service>.onrender.com/api/health`. It should
+   return `{"ok":true}`.
+
+### 3. Create the database tables
+
+Run this once from your machine against the hosted database:
+
+```bash
+cd server
+DATABASE_URL="postgresql://...your hosted url..." npx prisma db push
+```
+
+You can also run `npx prisma db push` from the host's shell.
+
+### 4. Point the app at the public API
+
+Set this before building the APK:
+
+```text
+EXPO_PUBLIC_API_URL=https://<your-service>.onrender.com/api
+```
+
+The value must include `/api` and must not end with a slash.
+
+## Build an APK and share it
+
+EAS cloud builds need no Android Studio:
 
 ```bash
 cd app
 npx eas-cli@latest login
+npx eas-cli@latest init          # first time only: creates the EAS project
+```
+
+Set the API URL for the build. Either add it to the `preview` profile in
+`eas.json`:
+
+```json
+"preview": {
+  "distribution": "internal",
+  "android": { "buildType": "apk" },
+  "env": {
+    "EXPO_PUBLIC_API_URL": "https://<your-service>.onrender.com/api"
+  }
+}
+```
+
+Or set `EXPO_PUBLIC_API_URL` in the EAS dashboard under
+**Project → Environment Variables** for the `preview` environment.
+
+Then build:
+
+```bash
 npx eas-cli@latest build -p android --profile preview
 ```
 
 `eas.json` is already configured to output an **APK** for the `preview` profile.
-Download the link EAS prints and share it — anyone can install it.
+EAS prints an installable URL when it finishes. Share that URL, or download the
+`.apk` and send it directly. On Android, the recipient must allow **Install
+unknown apps** for their browser or file manager. The APK talks to the public
+API, so it works on any network.
 
-**Before building for others**, the app must reach a public server:
-
-1. Deploy `server/` (it has a `Dockerfile`) to Render / Railway / Fly.io.
-2. Create a free PostgreSQL database on Neon / Supabase / Render.
-3. Set `DATABASE_URL` on the host, then run `npx prisma db push`.
-4. Set `EXPO_PUBLIC_API_URL=https://your-api.example.com/api` in `app/.env`
-   (or in the EAS build environment) and build the APK.
-
-Without step 4 the APK will try `localhost` and only work on your own machine.
+For a Play Store release, use `--profile production`; that profile builds an
+AAB instead of an APK.
 
 ## Useful commands
 

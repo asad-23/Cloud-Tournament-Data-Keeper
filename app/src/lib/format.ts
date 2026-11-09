@@ -36,12 +36,3 @@ export function resultColor(result: 'W' | 'D' | 'L') {
   if (result === 'D') return colors.warning;
   return colors.danger;
 }
-
-export function ordinal(position: number): string {
-  const mod10 = position % 10;
-  const mod100 = position % 100;
-  if (mod10 === 1 && mod100 !== 11) return `${position}st`;
-  if (mod10 === 2 && mod100 !== 12) return `${position}nd`;
-  if (mod10 === 3 && mod100 !== 13) return `${position}rd`;
-  return `${position}th`;
-}
