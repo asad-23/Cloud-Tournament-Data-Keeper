@@ -36,6 +36,7 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (token: string, user: User) => Promise<void>;
   signOut: () => Promise<void>;
+  updateUser: (user: User) => void;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -82,9 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await tokenStorage.remove().catch(() => undefined);
   }, [queryClient]);
 
+  const updateUser = useCallback((nextUser: User) => {
+    setUser(nextUser);
+  }, []);
+
   const value = useMemo(
-    () => ({ user, loading, signIn, signOut }),
-    [user, loading, signIn, signOut],
+    () => ({ user, loading, signIn, signOut, updateUser }),
+    [user, loading, signIn, signOut, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

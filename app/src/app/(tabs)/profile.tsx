@@ -2,12 +2,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { EditProfileSheet } from '@/components/EditProfileSheet';
+import { useToast } from '@/components/Toast';
 import { Avatar, Card, Divider, Pill, PrimaryButton, Screen, SectionTitle } from '@/components/ui';
 import { API_BASE } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { useUpdateProfile } from '@/lib/queries';
 import { colors, gradients, radius, spacing } from '@/lib/theme';
 
 const STEPS = [
@@ -31,8 +34,17 @@ const STEPS = [
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const router = useRouter();
+  const toast = useToast();
+  const insets = useSafeAreaInsets();
+  const updateProfile = useUpdateProfile();
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+
+  const closeEdit = () => {
+    setEditOpen(false);
+    updateProfile.reset();
+  };
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -88,6 +100,22 @@ export default function ProfileScreen() {
           <View>
             <SectionTitle title="Account" />
             <Card>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit name and nickname"
+                onPress={() => setEditOpen(true)}
+                style={({ pressed }) => [styles.editRow, pressed && { opacity: 0.7 }]}
+              >
+                <View style={styles.editIcon}>
+                  <Ionicons name="create-outline" size={17} color={colors.accent} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.editLabel}>Edit profile</Text>
+                  <Text style={styles.editHint}>Change your first name or nickname</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
+              </Pressable>
+              <Divider style={{ marginVertical: spacing.md }} />
               <View style={styles.infoRow}>
                 <Ionicons name="phone-portrait-outline" size={17} color={colors.textDim} />
                 <Text style={styles.infoLabel}>Session</Text>
@@ -128,6 +156,25 @@ export default function ProfileScreen() {
           <View style={{ height: spacing.xxl }} />
         </ScrollView>
       </SafeAreaView>
+
+      <EditProfileSheet
+        key={editOpen ? 'edit-profile-open' : 'edit-profile-closed'}
+        visible={editOpen}
+        firstName={user?.firstName ?? ''}
+        nickname={user?.nickname ?? ''}
+        loading={updateProfile.isPending}
+        error={updateProfile.error instanceof Error ? updateProfile.error.message : null}
+        bottomOffset={49 + insets.bottom}
+        onClose={closeEdit}
+        onSubmit={(body) =>
+          updateProfile.mutate(body, {
+            onSuccess: () => {
+              setEditOpen(false);
+              toast.show('Profile updated', 'success');
+            },
+          })
+        }
+      />
 
       <ConfirmDialog
         visible={confirmVisible}
@@ -204,6 +251,29 @@ const styles = StyleSheet.create({
     color: colors.borderStrong,
     fontSize: 22,
     fontWeight: '900',
+  },
+  editRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  editIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: colors.accentSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  editHint: {
+    color: colors.textMuted,
+    fontSize: 11,
+    marginTop: 2,
   },
   infoRow: {
     flexDirection: 'row',

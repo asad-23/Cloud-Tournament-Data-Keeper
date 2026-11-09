@@ -173,6 +173,20 @@ export function useSetResult(tournamentId: string) {
   });
 }
 
+export function useUpdateProfile() {
+  const queryClient = useQueryClient();
+  const { updateUser } = useAuth();
+  return useMutation({
+    mutationFn: api.updateProfile,
+    onSuccess: ({ user }) => {
+      updateUser(user);
+      queryClient.invalidateQueries({ queryKey: ['my-tournaments'] });
+      queryClient.invalidateQueries({ queryKey: ['tournament'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.explore });
+    },
+  });
+}
+
 export function useDeleteTournament() {
   const queryClient = useQueryClient();
   return useMutation({

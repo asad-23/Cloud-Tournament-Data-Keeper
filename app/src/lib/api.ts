@@ -101,6 +101,9 @@ export const api = {
 
   me: () => request<{ user: User }>('/auth/me'),
 
+  updateProfile: (body: { nickname?: string; firstName?: string }) =>
+    request<{ user: User }>('/auth/me', { method: 'PATCH', body }),
+
   myTournaments: () => request<{ tournaments: TournamentSummary[] }>('/tournaments'),
 
   explore: () => request<{ tournaments: ExploreTournament[] }>('/tournaments/explore'),

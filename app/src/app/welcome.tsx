@@ -125,7 +125,7 @@ export default function WelcomeScreen() {
                 <Field
                   label="Nickname"
                   icon="at-outline"
-                  placeholder="e.g. asad_10"
+                  placeholder="e.g. john_10"
                   autoCapitalize="none"
                   autoCorrect={false}
                   maxLength={20}
@@ -137,7 +137,7 @@ export default function WelcomeScreen() {
                 <Field
                   label="First name"
                   icon="person-outline"
-                  placeholder="e.g. Asad"
+                  placeholder="e.g. John"
                   autoCapitalize="words"
                   maxLength={30}
                   value={firstName}

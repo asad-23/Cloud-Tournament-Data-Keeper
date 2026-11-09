@@ -137,6 +137,7 @@ export default function TournamentScreen() {
   const [addMatchOpen, setAddMatchOpen] = useState(false);
   const [addPlayerOpen, setAddPlayerOpen] = useState(false);
   const [linkTarget, setLinkTarget] = useState<StandingRow | null>(null);
+  const [tabBarHeight, setTabBarHeight] = useState(0);
 
   const tournament = data?.tournament;
   const participants = useMemo(() => data?.participants ?? [], [data]);
@@ -830,7 +831,9 @@ export default function TournamentScreen() {
           <View style={{ height: spacing.xxl }} />
         </ScrollView>
 
-        <BottomTabs tabs={TABS} value={tab} onChange={setTab} />
+        <View onLayout={(event) => setTabBarHeight(event.nativeEvent.layout.height)}>
+          <BottomTabs tabs={TABS} value={tab} onChange={setTab} />
+        </View>
       </SafeAreaView>
 
       <ActionSheet
@@ -838,6 +841,7 @@ export default function TournamentScreen() {
         title={tournament.name}
         actions={actions}
         onClose={() => setMenuOpen(false)}
+        bottomOffset={tabBarHeight}
       />
 
       <ConfirmDialog
@@ -895,6 +899,7 @@ export default function TournamentScreen() {
         players={activePlayers}
         loading={addMatch.isPending}
         error={addMatch.error instanceof Error ? addMatch.error.message : null}
+        bottomOffset={tabBarHeight}
         onClose={() => setAddMatchOpen(false)}
         onSubmit={(body) =>
           addMatch.mutate(body, {
@@ -911,6 +916,7 @@ export default function TournamentScreen() {
         visible={addPlayerOpen}
         loading={addPlayer.isPending}
         error={addPlayer.error instanceof Error ? addPlayer.error.message : null}
+        bottomOffset={tabBarHeight}
         onClose={() => setAddPlayerOpen(false)}
         onSubmit={(body) =>
           addPlayer.mutate(body, {
@@ -928,6 +934,7 @@ export default function TournamentScreen() {
         playerName={linkTarget?.teamName ?? ''}
         loading={linkPlayer.isPending}
         error={linkPlayer.error instanceof Error ? linkPlayer.error.message : null}
+        bottomOffset={tabBarHeight}
         onClose={() => setLinkTarget(null)}
         onSubmit={(nickname) => {
           if (!linkTarget) return;
@@ -952,6 +959,7 @@ export default function TournamentScreen() {
       <PlayerSheet
         row={selected}
         isAdmin={isAdmin}
+        bottomOffset={tabBarHeight}
         onClose={() => setSelected(null)}
         onLink={() => {
           if (!selected) return;

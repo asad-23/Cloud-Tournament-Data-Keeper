@@ -16,11 +16,13 @@ export function ActionSheet({
   title,
   actions,
   onClose,
+  bottomOffset = 0,
 }: {
   visible: boolean;
   title?: string;
   actions: SheetAction[];
   onClose: () => void;
+  bottomOffset?: number;
 }) {
   const insets = useSafeAreaInsets();
 
@@ -39,7 +41,13 @@ export function ActionSheet({
         <Animated.View
           entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
           exiting={SlideOutDown.duration(180).easing(Easing.in(Easing.cubic))}
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+          style={[
+            styles.sheet,
+            {
+              paddingBottom: Math.max(insets.bottom, spacing.lg),
+              marginBottom: Math.max(bottomOffset, 0),
+            },
+          ]}
         >
           <View style={styles.handle} />
           {title ? <Text style={styles.title}>{title}</Text> : null}

@@ -142,4 +142,57 @@ router.get(
   }),
 );
 
+/** Update the signed-in user's first name and/or nickname. */
+router.patch(
+  '/me',
+  requireAuth,
+  h(async (req, res) => {
+    const body = z
+      .object({
+        nickname: nicknameSchema.optional(),
+        firstName: firstNameSchema.optional(),
+      })
+      .refine((value) => value.nickname !== undefined || value.firstName !== undefined, {
+        message: 'Nothing to update',
+      })
+      .parse(req.body);
+
+    const current = req.user!;
+
+    if (body.nickname && body.nickname.toLowerCase() !== current.nickname.toLowerCase()) {
+      const existing = await prisma.user.findFirst({
+        where: { nickname: { equals: body.nickname, mode: 'insensitive' } },
+        select: { id: true },
+      });
+      if (existing && existing.id !== current.id) {
+        throw new HttpError(409, 'That nickname is already taken');
+      }
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.update({
+        where: { id: current.id },
+        data: {
+          ...(body.nickname ? { nickname: body.nickname } : {}),
+          ...(body.firstName ? { firstName: body.firstName } : {}),
+        },
+        select: { id: true, nickname: true, firstName: true },
+      });
+
+      // The account first name is the default tournament player name. Only
+      // rewrite rows that still use it so custom player names stay untouched.
+      if (body.firstName && body.firstName !== current.firstName) {
+        await tx.participant.updateMany({
+          where: { userId: current.id, teamName: current.firstName },
+          data: { teamName: body.firstName },
+        });
+      }
+
+      return user;
+    });
+
+    res.json({ user: publicUser(updated) });
+  }),
+);
+
 export default router;

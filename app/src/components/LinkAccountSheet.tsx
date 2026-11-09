@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { Easing, FadeIn, SlideInDown } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/lib/theme';
+import { useKeyboardVisible } from '@/lib/useKeyboardVisible';
 import { Field, PrimaryButton } from './ui';
 
 export function LinkAccountSheet({
@@ -21,6 +22,7 @@ export function LinkAccountSheet({
   error,
   onClose,
   onSubmit,
+  bottomOffset = 0,
 }: {
   visible: boolean;
   playerName: string;
@@ -28,8 +30,11 @@ export function LinkAccountSheet({
   error?: string | null;
   onClose: () => void;
   onSubmit: (nickname: string) => void;
+  bottomOffset?: number;
 }) {
   const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardVisible();
+  const offset = keyboardVisible ? 0 : Math.max(bottomOffset, 0);
   const [nickname, setNickname] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -60,7 +65,10 @@ export function LinkAccountSheet({
 
         <Animated.View
           entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+          style={[
+            styles.sheet,
+            { paddingBottom: Math.max(insets.bottom, spacing.lg), marginBottom: offset },
+          ]}
         >
           <View style={styles.handle} />
           <View style={styles.titleRow}>

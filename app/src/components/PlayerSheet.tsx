@@ -48,6 +48,7 @@ export function PlayerSheet({
   onLink,
   onToggleDisabled,
   onDelete,
+  bottomOffset = 0,
 }: {
   row: StandingRow | null;
   isAdmin?: boolean;
@@ -55,6 +56,7 @@ export function PlayerSheet({
   onLink?: () => void;
   onToggleDisabled?: () => void;
   onDelete?: () => void;
+  bottomOffset?: number;
 }) {
   const insets = useSafeAreaInsets();
   const isGuest = row ? !row.userId : false;
@@ -75,7 +77,13 @@ export function PlayerSheet({
         {row ? (
           <Animated.View
             entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
-            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}
+            style={[
+              styles.sheet,
+              {
+                paddingBottom: Math.max(insets.bottom, spacing.xl),
+                marginBottom: Math.max(bottomOffset, 0),
+              },
+            ]}
           >
             <View style={styles.handle} />
 
