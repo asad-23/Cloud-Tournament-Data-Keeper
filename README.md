@@ -316,3 +316,4 @@ cd server && npx prisma studio      # browse the database
 cd app && npx tsc --noEmit          # type-check
 cd app && npx expo start --clear    # restart with a clean cache
 ```
+# Cloud-Tournament-Data-Keeper
