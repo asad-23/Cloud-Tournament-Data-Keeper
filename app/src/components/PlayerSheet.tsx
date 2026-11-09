@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { Easing, FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/lib/theme';
+import { useSheetSlideIn } from '@/lib/useSheetSlideIn';
 import type { StandingRow } from '@/lib/types';
 import { FormDots } from './FormDots';
 import { Avatar, Divider, Pill } from './ui';
@@ -57,6 +58,7 @@ export function PlayerSheet({
   onDelete?: () => void;
 }) {
   const insets = useSafeAreaInsets();
+  const slideIn = useSheetSlideIn(Boolean(row));
   const isGuest = row ? !row.userId : false;
 
   return (
@@ -74,8 +76,11 @@ export function PlayerSheet({
 
         {row ? (
           <Animated.View
-            entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
-            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.xl) }]}
+            style={[
+              styles.sheet,
+              slideIn,
+              { paddingBottom: Math.max(insets.bottom, spacing.xl) },
+            ]}
           >
             <View style={styles.handle} />
 

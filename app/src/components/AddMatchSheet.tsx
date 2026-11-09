@@ -9,8 +9,9 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { Easing, FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/lib/theme';
+import { useSheetSlideIn } from '@/lib/useSheetSlideIn';
 import type { Participant } from '@/lib/types';
 import { IconButton, PrimaryButton } from './ui';
 
@@ -110,6 +111,7 @@ export function AddMatchSheet({
   }) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const slideIn = useSheetSlideIn(visible);
   const [homeId, setHomeId] = useState<string | null>(null);
   const [awayId, setAwayId] = useState<string | null>(null);
   const [homeScore, setHomeScore] = useState(0);
@@ -145,8 +147,11 @@ export function AddMatchSheet({
         </Animated.View>
 
         <Animated.View
-          entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+          style={[
+            styles.sheet,
+            slideIn,
+            { paddingBottom: Math.max(insets.bottom, spacing.lg) },
+          ]}
         >
           <View style={styles.handle} />
           <View style={styles.titleRow}>

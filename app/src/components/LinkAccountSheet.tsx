@@ -10,8 +10,10 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Animated, { Easing, FadeIn, SlideInDown } from 'react-native-reanimated';
+import Animated, { FadeIn } from 'react-native-reanimated';
 import { colors, radius, spacing } from '@/lib/theme';
+import { useKeyboardVisible } from '@/lib/useKeyboardVisible';
+import { useSheetSlideIn } from '@/lib/useSheetSlideIn';
 import { Field, PrimaryButton } from './ui';
 
 export function LinkAccountSheet({
@@ -30,6 +32,8 @@ export function LinkAccountSheet({
   onSubmit: (nickname: string) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardVisible();
+  const slideIn = useSheetSlideIn(visible);
   const [nickname, setNickname] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -53,14 +57,20 @@ export function LinkAccountSheet({
       statusBarTranslucent
       onRequestClose={onClose}
     >
-      <KeyboardAvoidingView style={styles.backdrop} behavior="padding">
+      <KeyboardAvoidingView
+        style={styles.backdrop}
+        behavior={keyboardVisible ? 'padding' : undefined}
+      >
         <Animated.View entering={FadeIn.duration(150)} style={StyleSheet.absoluteFill}>
           <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
         </Animated.View>
 
         <Animated.View
-          entering={SlideInDown.duration(260).easing(Easing.out(Easing.cubic))}
-          style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}
+          style={[
+            styles.sheet,
+            slideIn,
+            { paddingBottom: Math.max(insets.bottom, spacing.lg) },
+          ]}
         >
           <View style={styles.handle} />
           <View style={styles.titleRow}>
