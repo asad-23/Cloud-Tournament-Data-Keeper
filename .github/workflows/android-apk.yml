@@ -36,7 +36,18 @@ jobs:
           distribution: temurin
           java-version: 17
 
+      # setup-android@v3 defaults to "tools platform-tools", but the legacy
+      # "tools" package no longer exists in the Android SDK repository.
+      # Override it with the SDK components this project actually uses
+      # (Expo SDK 58 / RN 0.88: compileSdk 37, build-tools 37.0.0, NDK 27.1).
       - uses: android-actions/setup-android@v3
+        with:
+          packages: >-
+            platform-tools
+            platforms;android-37.0
+            build-tools;37.0.0
+            ndk;27.1.12297006
+          accept-android-sdk-licenses: true
 
       - name: Accept Android SDK licenses
         run: yes | sdkmanager --licenses > /dev/null || true
